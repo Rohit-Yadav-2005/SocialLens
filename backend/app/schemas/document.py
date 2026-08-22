@@ -17,6 +17,7 @@ class DocumentResponse(BaseModel):
     status: DocumentStatus
     extraction_method: ExtractionMethod | None
     extracted_text: str | None
+    ocr_confidence: float | None
     error_message: str | None
     created_at: datetime
     updated_at: datetime

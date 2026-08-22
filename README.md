@@ -6,12 +6,12 @@ SocialLens extracts text from uploaded PDFs and images (with OCR fallback
 for scanned documents), analyzes the content as social-media copy, scores
 it across several dimensions, and generates an improved rewrite.
 
-> **Status:** Phase 2 of 10 complete — database, models, repositories, and
-> the documents/analyses API are live. Documents can be uploaded (validated,
-> stored, recorded), listed, and fetched; analyses can be listed and
-> fetched once they exist. Extraction, OCR, AI analysis, and the frontend
-> UI land in later phases. See [docs/decisions.md](docs/decisions.md) for
-> the engineering log.
+> **Status:** Phase 3 of 10 complete — uploading a document now runs it
+> through the full extraction pipeline synchronously: native PDF text via
+> PyMuPDF, automatic fallback to Tesseract OCR for scanned pages/images,
+> preprocessing, normalization, and extraction metadata, all persisted on
+> the document row. AI analysis and the frontend UI land in later phases.
+> See [docs/decisions.md](docs/decisions.md) for the engineering log.
 
 ## 1. Overview
 
@@ -60,10 +60,17 @@ diagram in [docs/architecture.md](docs/architecture.md).
 
 ## 6. OCR strategy
 
-Tesseract (free, open source) via `pytesseract`. Images go through
-grayscale/contrast/threshold preprocessing before OCR. Scanned PDF pages
-are rendered to images (PyMuPDF) and OCR'd page-by-page. OCR confidence is
-captured and surfaced (`extraction_method`, `confidence`).
+Tesseract (free, open source) via `pytesseract`, behind an `OCRProvider`
+interface (`app/providers/ocr/`) with exactly one implementation today.
+Images go through EXIF auto-rotation, grayscale, upscaling (if small),
+contrast enhancement, and Otsu binarization before OCR (`OcrService`,
+`app/services/ocr_service.py`) — deskewing is intentionally out of scope,
+see [docs/decisions.md](docs/decisions.md). Scanned PDF pages are rendered
+to images (PyMuPDF, 200 DPI) and OCR'd page-by-page, only for pages whose
+native text extraction didn't produce anything meaningful — a mixed
+native/scanned PDF only pays the OCR cost where it's actually needed.
+`extraction_method` (`native`/`ocr`) and `ocr_confidence` are persisted on
+the document and returned by the API.
 
 ## 7. AI analysis strategy
 
@@ -86,10 +93,14 @@ change — see [docs/decisions.md](docs/decisions.md).
 REST API under `/api/v1`. Currently:
 
 - `GET /api/v1/health` — liveness check
-- `POST /api/v1/documents` — upload a PDF/PNG/JPG (multipart), validated and
-  stored; creates a `documents` row with `status=uploaded`
+- `POST /api/v1/documents` — upload a PDF/PNG/JPG (multipart): validated,
+  stored temporarily, and run through extraction (native text, with
+  automatic OCR fallback) synchronously before responding. Returns the
+  document with `extracted_text`, `extraction_method`, `ocr_confidence`,
+  and `status` (`processed` on success, `failed` with `error_message` set
+  if extraction couldn't produce usable text)
 - `GET /api/v1/documents` — list uploaded documents (paginated: `skip`, `limit`)
-- `GET /api/v1/documents/{id}` — fetch one document, including extracted text once populated
+- `GET /api/v1/documents/{id}` — fetch one document, including extracted text and extraction metadata
 - `GET /api/v1/analyses` — list analyses (paginated: `skip`, `limit`)
 - `GET /api/v1/analyses/{id}` — fetch one analysis
 
@@ -102,12 +113,27 @@ pipeline exists). Full interactive docs at `http://localhost:8000/docs`
 
 Prerequisites: Node.js 20+, Python 3.11+ (developed against 3.14),
 [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) installed and
-on `PATH` (needed starting Phase 3, not for the current scaffold).
+on `PATH`.
 
 ```bash
 git clone <repo-url>
 cd SocialLens
 ```
+
+**Installing Tesseract:**
+
+- **Windows:** download the installer from the
+  [UB-Mannheim Tesseract build](https://github.com/UB-Mannheim/tesseract/wiki)
+  (the most commonly used Windows build) and run it. If it's not on `PATH`
+  afterward, set `TESSERACT_CMD` in `backend/.env` to the install path,
+  typically `C:\Program Files\Tesseract-OCR\tesseract.exe`.
+- **macOS:** `brew install tesseract`
+- **Linux (Debian/Ubuntu):** `sudo apt-get install tesseract-ocr`
+
+Native PDF text extraction and file validation work without Tesseract
+installed — it's only needed for scanned PDFs and image uploads. Without
+it, those uploads fail gracefully with a clear `OCR_FAILED` error instead
+of crashing.
 
 ## 11. Environment variables
 
@@ -165,11 +191,16 @@ cd backend
 pytest
 ```
 
-Covers file validation (extension/MIME/signature/size), the documents and
-analyses repositories, and the documents/analyses API endpoints (upload,
-list, get, 404s, validation errors) — each test runs against an isolated
-in-memory SQLite database, not the dev `socialens.db`. Frontend test setup
-lands alongside the components it covers (Phase 8).
+Covers file validation, the documents/analyses repositories and API
+endpoints, text normalization, and the extraction pipeline's
+native-vs-OCR decision logic, per-page fallback, and failure handling
+(corrupted files, no readable text, OCR engine errors). All of these run
+against an isolated in-memory SQLite database and a mocked OCR engine, so
+the suite passes with or without Tesseract installed. One additional test
+(`test_ocr_real_engine.py`) exercises the real Tesseract binary and is
+skipped automatically when it isn't found — install Tesseract and re-run
+`pytest` to bring it in. Frontend test setup lands alongside the
+components it covers (Phase 8).
 
 ## 15. Docker instructions
 

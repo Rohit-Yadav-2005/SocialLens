@@ -9,7 +9,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Integer, String, Text
+from sqlalchemy import DateTime, Enum, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -46,6 +46,7 @@ class Document(Base):
         Enum(ExtractionMethod, native_enum=False, length=10), nullable=True
     )
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ocr_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

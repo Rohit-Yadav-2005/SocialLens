@@ -6,20 +6,21 @@ def test_upload_document_creates_record(client, pdf_bytes):
     assert response.status_code == 201
     body = response.json()
     assert body["filename"] == "post.pdf"
-    assert body["status"] == "uploaded"
+    assert body["status"] == "processed"
     assert body["file_size"] == len(pdf_bytes)
-    assert body["extracted_text"] is None
+    assert "ProductLaunch" in body["extracted_text"]
+    assert body["extraction_method"] == "native"
 
 
-def test_upload_writes_file_to_temp_dir(client, pdf_bytes, tmp_path):
+def test_upload_deletes_temp_file_after_processing(client, pdf_bytes, tmp_path):
+    """The original upload is never retained past the extraction step
+    (see docs/decisions.md, 'Temp files over object storage')."""
     response = client.post(
         "/api/v1/documents",
         files={"file": ("post.pdf", pdf_bytes, "application/pdf")},
     )
     document_id = response.json()["id"]
-    saved_files = list(tmp_path.glob(f"{document_id}*"))
-    assert len(saved_files) == 1
-    assert saved_files[0].read_bytes() == pdf_bytes
+    assert list(tmp_path.glob(f"{document_id}*")) == []
 
 
 def test_upload_rejects_invalid_file_type(client):

@@ -44,10 +44,12 @@ class DocumentRepository:
         *,
         extracted_text: str,
         extraction_method: ExtractionMethod,
+        ocr_confidence: float | None = None,
         status: DocumentStatus = DocumentStatus.PROCESSED,
     ) -> Document:
         document.extracted_text = extracted_text
         document.extraction_method = extraction_method
+        document.ocr_confidence = ocr_confidence
         document.status = status
         self.db.commit()
         self.db.refresh(document)

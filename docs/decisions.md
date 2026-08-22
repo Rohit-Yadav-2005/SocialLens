@@ -2,6 +2,72 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Extraction runs synchronously inside the upload request
+
+`POST /api/v1/documents` validates, stores, *and* extracts (native text or
+OCR fallback) before responding — there's no separate "process" step or
+polling. A single document takes low single-digit seconds even with OCR,
+well within a normal request timeout, and this keeps the pipeline
+trivially easy to reason about (no task queue, no job status to poll — see
+[architecture.md](architecture.md)). The AI-analysis step (Phase 4) is a
+separate `POST /documents/{id}/analyze` call, since that's a materially
+slower, separately-retryable operation.
+
+## Failed documents are kept, not discarded
+
+If extraction fails (corrupted file, no readable text, OCR engine error),
+the `documents` row is *not* deleted — it's updated to `status=failed`
+with `error_message` set, and the same error is also returned to the
+caller as an HTTP error response. This means a failed upload still shows
+up in history (so the user can see *what* they tried and *why* it failed)
+while the client still gets an immediate, specific error to display.
+Purely invalid uploads (wrong file type, over the size limit) are rejected
+*before* a document row is created, since those never got far enough to
+be a real attempt worth recording.
+
+## PDF opened from bytes, not by filename
+
+`ExtractionService._extract_pdf` reads the temp file's bytes and calls
+`pymupdf.open(stream=..., filetype="pdf")` rather than
+`pymupdf.open(path)`. Opening by filename was found (via a failing test)
+to keep an OS-level file handle open on Windows even after PyMuPDF raises
+on a malformed PDF, which then blocked deleting the temp file in the
+`finally` block. Opening from an in-memory buffer sidesteps the OS handle
+entirely.
+
+## `is_meaningful_text` heuristic, not a strict content check
+
+The native-vs-OCR fallback decision (and the final "did we get anything
+usable" check) both use one small heuristic: strip the text, require at
+least 15 non-whitespace characters, and require at least 30% of those to
+be alphanumeric. It deliberately does *not* penalize hashtags, emoji, or
+punctuation-heavy text — a short, real social post ("Big news today
+#launch #excited #team") should pass, while a blank/scanned page or
+garbled OCR noise ("... --- ___ ///") should not. It's a heuristic, not a
+classifier — documented as a known limitation rather than tuned further,
+per the "don't over-engineer" principle.
+
+## No deskewing in OCR preprocessing
+
+Preprocessing covers grayscale, upscaling small images, contrast
+enhancement (Otsu binarization via OpenCV), and EXIF auto-rotation.
+Deskewing (correcting a rotated/tilted scan) was left out: it's the one
+preprocessing step in the spec's suggested list that's genuinely fiddly to
+get right without a dedicated library, and the assessment's realistic
+inputs (screenshots, phone photos of a screen) are rarely skewed enough to
+need it. Noted here as a known gap rather than silently dropped.
+
+## Testing strategy: mock the OCR engine, keep one real-engine test
+
+Every extraction/OCR test monkeypatches `TesseractOCRProvider.extract`
+(or injects a fake `OcrService`) so the suite passes in any environment,
+regardless of whether the Tesseract binary is installed — this dev
+machine didn't have it installed when this phase was built. One test
+(`test_ocr_real_engine.py`) exercises the actual binary and is
+auto-skipped via `pytest.mark.skipif` when it can't be found, so it comes
+alive automatically in an environment (like CI, or after a developer
+installs Tesseract locally) that has it.
+
 ## UUID string primary keys, not autoincrement integers
 
 `documents.id` and `analyses.id` are UUID4 strings generated in Python

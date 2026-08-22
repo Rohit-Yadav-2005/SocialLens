@@ -59,7 +59,7 @@ sequenceDiagram
         OCR-->>EX: text + confidence
     end
     EX-->>API: raw + normalized text
-    API->>DB: update document (extracted_text, status=extracted)
+    API->>DB: update document (extracted_text, status=processed)
     API-->>FE: document id + status
     FE->>API: POST /api/v1/documents/{id}/analyze
     API->>AN: analyze(document)
