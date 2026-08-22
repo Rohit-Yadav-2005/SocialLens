@@ -1,0 +1,38 @@
+# --- Environment / secrets ---
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# --- Backend (Python) ---
+backend/venv/
+backend/.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+backend/*.db
+backend/*.db-journal
+backend/temp/*
+!backend/temp/.gitkeep
+backend/app/prompts/__pycache__/
+
+# --- Frontend (Node / Next.js) ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.turbo/
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
+npm-debug.log*
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+*.log

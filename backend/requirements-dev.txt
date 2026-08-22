@@ -1,0 +1,6 @@
+-r requirements.txt
+
+ruff>=0.16,<0.17
+black>=26,<27
+pytest>=9,<10
+httpx>=0.28,<0.29
