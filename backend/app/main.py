@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import analyses, documents, health
+from app.api import analyses, documents, health, insights
 from app.core.config import get_settings
 from app.core.exceptions import AppError
 from app.core.logging import configure_logging, get_logger
@@ -47,6 +47,7 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
 app.include_router(health.router, prefix=settings.api_v1_prefix)
 app.include_router(documents.router, prefix=settings.api_v1_prefix)
 app.include_router(analyses.router, prefix=settings.api_v1_prefix)
+app.include_router(insights.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")

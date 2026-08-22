@@ -1,0 +1,26 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.schemas.insights import InsightsResponse, ScoreTrendPoint, WeaknessCategoryCount
+from app.services.insights_service import InsightsService
+
+router = APIRouter(prefix="/insights", tags=["insights"])
+
+
+@router.get("", response_model=InsightsResponse)
+def get_insights(db: Session = Depends(get_db)) -> InsightsResponse:
+    summary = InsightsService(db).get_summary()
+    return InsightsResponse(
+        total_analyses=summary.total_analyses,
+        average_overall_score=summary.average_overall_score,
+        average_hook_score=summary.average_hook_score,
+        average_cta_score=summary.average_cta_score,
+        score_trend=[
+            ScoreTrendPoint(date=date, overall_score=score) for date, score in summary.score_trend
+        ],
+        common_weaknesses=[
+            WeaknessCategoryCount(category=category, count=count)
+            for category, count in summary.common_weaknesses
+        ],
+    )

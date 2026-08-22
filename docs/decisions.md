@@ -2,6 +2,61 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Document.created_at/updated_at also moved to a client-side default
+
+The same bug fixed for `Analysis.created_at` in Phase 6 (SQLite's
+`CURRENT_TIMESTAMP` server_default only has second resolution) turned out
+to affect `Document` too — found by seeding several documents in quick
+succession for History-page testing and noticing the display order
+didn't match creation order at all. Applied the identical fix
+(`default=lambda: datetime.now(UTC)` instead of `server_default`) to both
+`created_at` and `updated_at`. Worth remembering as a pattern: any
+`server_default=func.now()` on SQLite is a latent ordering bug waiting
+for two writes in the same second — which batch seeding, tests, or a
+user uploading several files quickly can all trigger.
+
+## History joins documents + analyses client-side, not via a new endpoint
+
+Unlike the results page (which got a dedicated `GET /documents/{id}/
+analysis` endpoint in Phase 6), History reuses the existing `GET
+/documents` and `GET /analyses` list endpoints as-is and joins them in
+the browser (`useHistory`, mapping `analysis.document_id` to
+`overall_score`, first-seen-wins since the list is already newest-first).
+No backend change needed here, unlike the results page — the two lists
+were already exactly the data required, just not yet combined, and
+document-centric semantics (show every upload, analyzed or not) are
+naturally what falling back to the documents list gives for free. Fetches
+`limit=200` (the backend's max) rather than paginating — the spec
+explicitly says "pagination only if necessary," and that's well past
+what an assessment-scale history needs.
+
+## "Common weaknesses" categorization is a documented heuristic
+
+The AI returns free-form weakness text, not a category — there was never
+a structured field to read a "Weak CTA" label from. Rather than leave a
+real, useful signal out entirely, `InsightsService.categorize_weakness`
+keyword-matches each weakness string against five categories tied to the
+app's own score dimensions (hook, clarity→"unclear messaging",
+engagement, CTA, readability). A weakness can match zero, one, or several
+categories; unmatched weaknesses simply don't count toward any bucket
+rather than being forced into a misleading catch-all. This is the same
+category of choice as the CTA-phrase detection already in
+`ScoringService` — a transparent, deterministic heuristic over real data,
+not something presented as more precise than it is. Both the API
+response's framing and the Insights page's caption say "grouped by
+keyword," not "AI-categorized."
+
+## "Average improvement" (spec's suggested stat) is not implemented
+
+Spec section 25 lists it alongside average overall/hook/CTA score, but
+nothing in the app computes a real value for it — doing so would mean
+re-scoring `improved_content` with a second AI call per analysis, which
+this phase never asked for and would roughly double Gemini API cost per
+analysis for a stat of unclear value. Rather than fabricate a number
+(explicitly against this phase's instructions) or invent a strained
+reinterpretation of "improvement," it's omitted, with the reasoning
+recorded here and in the README rather than silently dropped.
+
 ## TanStack Query: `retry: false`, `networkMode: "always"` app-wide
 
 Found via a real, reproducible bug while building the results page:

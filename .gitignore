@@ -28,6 +28,9 @@ frontend/next-env.d.ts
 frontend/*.tsbuildinfo
 npm-debug.log*
 
+# --- Claude Code session state ---
+.claude/scheduled_tasks.lock
+
 # --- Editor / OS ---
 .vscode/
 .idea/

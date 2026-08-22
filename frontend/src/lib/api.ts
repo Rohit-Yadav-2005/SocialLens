@@ -4,6 +4,7 @@ import type {
   ApiErrorBody,
   DocumentResponse,
   DocumentSummary,
+  InsightsResponse,
   Platform,
 } from "@/types/api";
 
@@ -108,4 +109,8 @@ export function listAnalyses(params?: {
   if (params?.limit !== undefined) query.set("limit", String(params.limit));
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return request<AnalysisSummary[]>(`/api/v1/analyses${suffix}`);
+}
+
+export function getInsights(): Promise<InsightsResponse> {
+  return request<InsightsResponse>("/api/v1/insights");
 }

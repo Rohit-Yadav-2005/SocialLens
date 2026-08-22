@@ -6,12 +6,14 @@ SocialLens extracts text from uploaded PDFs and images (with OCR fallback
 for scanned documents), analyzes the content as social-media copy, scores
 it across several dimensions, and generates an improved rewrite.
 
-> **Status:** Phase 6 of 10 complete — `/analyze/[documentId]` is the full
-> results dashboard: overall score gauge, a Recharts radar breakdown of
-> the five sub-scores, deterministic content metrics, strengths/
-> weaknesses, recommendations, and an original-vs-improved comparison with
-> copy-to-clipboard. `/history` and `/insights` are still navigable
-> placeholders — their real content is Phase 7. See
+> **Status:** Phase 7 of 10 complete — `/history` lists every uploaded
+> document (filename, score, status, date) with search and sortable
+> columns, joined from the real documents/analyses APIs. `/insights`
+> shows real aggregate stats (total analyses, average scores, a Recharts
+> score trend, and AI-weakness categories grouped by keyword) with honest
+> empty states when there isn't enough data — nothing here is fabricated.
+> That was the last of the 7 application phases; Phases 8-10 (testing,
+> Docker, and final docs) remain. See
 > [docs/decisions.md](docs/decisions.md) for the engineering log.
 
 ## 1. Overview
@@ -46,11 +48,24 @@ container orchestration. Full diagrams in
 
 **Frontend structure:** `app/` holds routes (App Router), `components/`
 is split by concern (`layout/`, `upload/`, `analysis/`, `landing/`,
-`providers/`, `ui/` for shadcn primitives), `lib/api.ts` is the one place
-that calls the backend (typed, throws a typed `ApiError`), `hooks/` holds
-TanStack Query orchestration, `types/` mirrors the backend's Pydantic
-schemas, and `validations/` holds the Zod client-side checks. No frontend
-component calls `fetch` directly — everything goes through `lib/api.ts`.
+`history/`, `insights/`, `providers/`, `ui/` for shadcn primitives),
+`lib/api.ts` is the one place that calls the backend (typed, throws a
+typed `ApiError`), `hooks/` holds TanStack Query orchestration, `types/`
+mirrors the backend's Pydantic schemas, and `validations/` holds the Zod
+client-side checks. No frontend component calls `fetch` directly —
+everything goes through `lib/api.ts`.
+
+**History** (`/history`, `useHistory`): joins `GET /documents` with
+`GET /analyses` client-side — documents carry filename/status/date,
+analyses carry the score, and a document can exist without an analysis
+yet (shown as `—`). Search (by filename) and column sort are local state
+over the already-fetched rows; no backend involvement, since the data
+volume doesn't warrant it (see docs/decisions.md).
+
+**Insights** (`/insights`, `useInsights`): a single `GET /insights` call.
+Empty state when `total_analyses === 0`; a separate, narrower empty state
+just for the trend chart when there's data but fewer than 2 points (a
+"trend" of one point isn't meaningful, but the stat tiles still show).
 
 **Results dashboard** (`/analyze/[documentId]`, `components/analysis/`):
 fetches the document and its analysis by id (`useDocumentAnalysis`,
@@ -165,6 +180,11 @@ REST API under `/api/v1`. Currently:
   page was reloaded/opened directly
 - `GET /api/v1/analyses` — list analyses (paginated: `skip`, `limit`)
 - `GET /api/v1/analyses/{id}` — fetch one analysis
+- `GET /api/v1/insights` — aggregate stats across every analysis: total
+  count, average overall/hook/CTA scores (`null` when there's no data,
+  never a fabricated `0`), a chronological score trend, and weakness
+  categories (keyword-matched from the AI's free-form weakness text)
+  ranked by frequency
 
 Full interactive docs at `http://localhost:8000/docs` (FastAPI's
 auto-generated OpenAPI UI) once the backend is running.
@@ -265,6 +285,8 @@ OCR engine and LLM provider both mocked, so the suite passes without
 Tesseract installed and without a real `GEMINI_API_KEY` or network
 access. One additional test (`test_ocr_real_engine.py`) exercises the
 real Tesseract binary and is skipped automatically when it isn't found.
+Also covers the insights aggregation (averages, chronological score
+trend, weakness-category keyword matching, and the empty-data state).
 Frontend test setup lands alongside the components it covers (Phase 8).
 
 ## 15. Docker instructions
@@ -289,14 +311,26 @@ the backend, Vercel for the frontend).
 - CTA and readability heuristics are simple (phrase-matching, Flesch
   approximation) — they won't catch every real-world CTA or reading-level
   edge case.
-- `/history` and `/insights` are navigable placeholders; their real
-  content lands in Phase 7. The results dashboard doesn't yet show
-  weakness "severity" (spec's suggested field) — the AI response doesn't
-  include one, and inventing a fake severity level would be worse than
-  omitting it.
+- The results dashboard doesn't show weakness "severity" (spec's
+  suggested field) — the AI response doesn't include one, and inventing a
+  fake severity level would be worse than omitting it.
 - TanStack Query is configured with `retry: false` app-wide (see
   [docs/decisions.md](docs/decisions.md)) — a failed request surfaces
   immediately rather than retrying automatically.
+- "Common weaknesses" on the Insights page is a keyword-matched
+  categorization of the AI's free-form weakness text, not something the
+  AI was asked to classify directly — a real weakness can go
+  uncategorized if it doesn't match a known keyword. Documented in the UI
+  itself, not just here.
+- Insights' "average improvement" (spec's suggested stat) isn't shown —
+  it would require re-scoring `improved_content` with a second AI call,
+  which nothing in this phase asked for or justified adding. The stats
+  shown (total, average overall/hook/CTA) are all real, direct
+  aggregates.
+- History's document↔analysis join and Insights' aggregation both read
+  the *entire* documents/analyses tables unpaged — reasonable at
+  assessment scale, would need real pagination/aggregation-in-SQL before
+  scaling past a few thousand rows.
 
 ## 18. Future improvements
 

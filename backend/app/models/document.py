@@ -7,11 +7,10 @@ docs/decisions.md, "Temp files over object storage").
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, Enum, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
 
 from app.core.database import Base
 
@@ -49,7 +48,15 @@ class Document(Base):
     ocr_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Client-side (not server_default) so this has microsecond precision —
+    # SQLite's CURRENT_TIMESTAMP is second-resolution, which makes
+    # created_at-ordered lists (history, uploaded-close-together docs)
+    # ambiguous. Same fix as Analysis.created_at — see docs/decisions.md.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )

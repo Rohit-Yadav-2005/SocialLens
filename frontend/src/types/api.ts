@@ -82,3 +82,22 @@ export interface ApiErrorBody {
   error_code: string;
   message: string;
 }
+
+export interface ScoreTrendPoint {
+  date: string;
+  overall_score: number;
+}
+
+export interface WeaknessCategoryCount {
+  category: string;
+  count: number;
+}
+
+export interface InsightsResponse {
+  total_analyses: number;
+  average_overall_score: number | null;
+  average_hook_score: number | null;
+  average_cta_score: number | null;
+  score_trend: ScoreTrendPoint[];
+  common_weaknesses: WeaknessCategoryCount[];
+}

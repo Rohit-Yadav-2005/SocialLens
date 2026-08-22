@@ -24,6 +24,12 @@ class AnalysisRepository:
         stmt = select(Analysis).order_by(Analysis.created_at.desc()).offset(skip).limit(limit)
         return list(self.db.execute(stmt).scalars().all())
 
+    def list_all(self) -> list[Analysis]:
+        """Unpaged read for aggregate stats (insights). Fine at this data
+        scale — see docs/decisions.md."""
+        stmt = select(Analysis).order_by(Analysis.created_at.asc())
+        return list(self.db.execute(stmt).scalars().all())
+
     def get_by_document_id(self, document_id: str) -> Analysis | None:
         """Returns the most recent analysis for a document (a document can
         be re-analyzed, e.g. for a different platform)."""
