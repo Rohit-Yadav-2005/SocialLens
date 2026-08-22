@@ -2,6 +2,76 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Only content_analysis.txt exists; content_improvement.txt is deferred
+
+Spec section 16 names two prompt files. Only `content_analysis.txt` is
+wired into any code path — the core analyze flow returns everything in
+one structured response, including `improved_content`, matching section
+15's example exactly. `content_improvement.txt` would back the *optional*
+tone/length regeneration controls from section 17, which that same
+section explicitly says "can be implemented after the core analysis
+works" and "should not block the basic workflow." Creating an unused
+prompt file now would be dead code with nothing to call it — it gets
+added when the tone/length feature (and the frontend controls for it) is
+actually built.
+
+## `response_schema` set, but the response is still independently validated
+
+`GeminiProvider` passes `AiAnalysisResult` as `config.response_schema`
+(google-genai supports structured output directly from a Pydantic model),
+which makes a well-formed response far more likely. But the raw text is
+still `json.loads`'d and `AiAnalysisResult.model_validate`'d by hand
+afterward rather than trusting the SDK's `response.parsed` — an empty
+response (e.g. content blocked by a safety filter), a network hiccup
+mid-stream, or a future SDK behavior change should never be able to skip
+validation and crash the request. Belt and suspenders, not either/or.
+
+## Hybrid scoring: which scores blend, and which don't
+
+Spec section 13 gives the `overall_score` formula (40% deterministic /
+60% AI) explicitly but leaves the other five scores unspecified beyond
+"the exact formula can be adjusted." The per-score split implemented
+(see README section 7 for the table) follows what's actually measurable
+deterministically: `readability_score` is 100% deterministic because
+section 12 lists "approximate readability" under deterministic metrics
+and it is *not* in the AI's evaluation list; `hook_score`/`clarity_score`/
+`engagement_score` are 100% AI because there's no honest deterministic
+proxy for them (guessing at one would be worse than not pretending to
+have one); `cta_score` blends 30/70 because deterministic metrics can
+only detect a CTA *phrase's presence*, not whether it's actually
+persuasive — that judgment call belongs to the AI. All of this is a
+starting point, not a validated model — documented as a known limitation
+rather than presented as more rigorous than it is.
+
+## AI's own readability_score is requested but discarded
+
+The prompt still asks for `readability_score` in the JSON response (the
+spec's example includes it, and keeping the schema literal makes the
+contract easier to reason about), but `ScoringService.blend_scores`
+ignores it entirely in favor of the deterministic Flesch-based value —
+see "Hybrid scoring" above for why.
+
+## Missing GEMINI_API_KEY fails fast, but only inside `analyze_document`
+
+`GeminiProvider.__init__` raises `AiAnalysisFailedError` immediately if
+`api_key` is empty — no point letting a doomed request reach the network.
+But `AnalysisService` only constructs `GeminiProvider` lazily, inside
+`analyze_document()`, not in `__init__`. `AnalysisService(db)` is also
+used for pure reads (`get`, `list` — e.g. `GET /analyses`), and those must
+keep working with no `GEMINI_API_KEY` configured at all; failing at
+`AnalysisService.__init__` would have broken every read endpoint over a
+key those endpoints never needed.
+
+## Analysis failure reverts document status, doesn't introduce a new one
+
+If the AI call fails or its response is invalid, the document's `status`
+reverts to `processed` (not a new `analysis_failed` value) and no
+`analyses` row is created. Extraction already succeeded — that work
+shouldn't be discarded by a separate, retryable failure. `ANALYZING` is
+set transiently before the call and either becomes `ANALYZED` on success
+or reverts on any exception, so a document can never get stuck at
+`ANALYZING` from a single synchronous request.
+
 ## Extraction runs synchronously inside the upload request
 
 `POST /api/v1/documents` validates, stores, *and* extracts (native text or

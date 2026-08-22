@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-2.5-flash"
 
     max_upload_size_mb: int = 20
     temp_dir: Path = BACKEND_ROOT / "temp"

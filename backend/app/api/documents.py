@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.providers.llm.base import Platform
+from app.schemas.analysis import AnalysisResponse
 from app.schemas.document import DocumentResponse, DocumentSummary
+from app.services.analysis_service import AnalysisService
 from app.services.document_service import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -39,3 +42,16 @@ def get_document(document_id: str, db: Session = Depends(get_db)) -> DocumentRes
     service = DocumentService(db)
     document = service.get(document_id)
     return DocumentResponse.model_validate(document)
+
+
+@router.post(
+    "/{document_id}/analyze", response_model=AnalysisResponse, status_code=status.HTTP_201_CREATED
+)
+def analyze_document(
+    document_id: str,
+    platform: Platform = Query("generic"),
+    db: Session = Depends(get_db),
+) -> AnalysisResponse:
+    document = DocumentService(db).get(document_id)
+    analysis = AnalysisService(db).analyze_document(document, platform=platform)
+    return AnalysisResponse.model_validate(analysis)

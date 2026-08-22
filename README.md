@@ -6,12 +6,13 @@ SocialLens extracts text from uploaded PDFs and images (with OCR fallback
 for scanned documents), analyzes the content as social-media copy, scores
 it across several dimensions, and generates an improved rewrite.
 
-> **Status:** Phase 3 of 10 complete — uploading a document now runs it
-> through the full extraction pipeline synchronously: native PDF text via
-> PyMuPDF, automatic fallback to Tesseract OCR for scanned pages/images,
-> preprocessing, normalization, and extraction metadata, all persisted on
-> the document row. AI analysis and the frontend UI land in later phases.
-> See [docs/decisions.md](docs/decisions.md) for the engineering log.
+> **Status:** Phase 4 of 10 complete — `POST /documents/{id}/analyze` runs
+> the full content-analysis pipeline: deterministic metrics, a structured
+> Gemini call, and a hybrid score blend, persisted as an `analysis` row.
+> Missing API keys, request failures, and malformed AI responses all fail
+> gracefully with a clear error rather than crashing. The frontend UI
+> lands in later phases. See [docs/decisions.md](docs/decisions.md) for
+> the engineering log.
 
 ## 1. Overview
 
@@ -75,10 +76,38 @@ the document and returned by the API.
 ## 7. AI analysis strategy
 
 All Gemini calls go through a single `LLMProvider` abstraction
-(`app/providers/llm/`). The model is asked for structured JSON only,
-validated with Pydantic before use; a malformed response is handled
-gracefully rather than crashing the request. Prompts live in
-`backend/app/prompts/` as versioned text files, not inline strings.
+(`app/providers/llm/`) — `GeminiProvider` is the only implementation, kept
+swappable for a future provider. The model is asked for structured JSON
+only (`response_schema` set to the Pydantic contract), and the raw text is
+still independently `json.loads`'d and `model_validate`'d before use —
+belt and suspenders, since a malformed or empty response must never crash
+the request. The prompt lives in `backend/app/prompts/content_analysis.txt`
+as a versioned text file, not an inline string, and explicitly instructs
+the model not to invent engagement statistics or guarantee outcomes.
+
+**Scoring is hybrid, not purely AI-driven.** `ScoringService`
+(`app/services/scoring_service.py`) computes deterministic metrics (word/
+sentence/hashtag/mention/URL/emoji counts, CTA-phrase detection, a Flesch
+Reading Ease approximation) independently of the LLM, then blends them
+with the AI's judgment:
+
+| Score | Formula |
+|---|---|
+| `readability_score` | 100% deterministic (Flesch-based) — the AI isn't asked to judge this |
+| `hook_score` / `clarity_score` / `engagement_score` | 100% AI — no reliable deterministic proxy exists |
+| `cta_score` | 30% deterministic (CTA-phrase presence) + 70% AI (CTA quality) |
+| `overall_score` | 40% deterministic metrics + 60% AI, per the assessment spec |
+
+These weights are an initial, transparent choice — not a statistically
+tuned model — and that limitation is stated in the UI, not hidden. See
+[docs/decisions.md](docs/decisions.md) for the full reasoning per score.
+
+**Failure handling:** a missing `GEMINI_API_KEY`, a failed request, an
+empty response, non-JSON output, or a schema-violating response are each
+caught and surfaced as a specific error code (`AI_ANALYSIS_FAILED` /
+`INVALID_AI_RESPONSE`) rather than a stack trace. On failure, no
+`analyses` row is created and the document's status reverts to
+`processed` (extraction is untouched) so the caller can retry.
 
 ## 8. Database design
 
@@ -101,13 +130,17 @@ REST API under `/api/v1`. Currently:
   if extraction couldn't produce usable text)
 - `GET /api/v1/documents` — list uploaded documents (paginated: `skip`, `limit`)
 - `GET /api/v1/documents/{id}` — fetch one document, including extracted text and extraction metadata
+- `POST /api/v1/documents/{id}/analyze?platform=generic` — run content
+  analysis on an already-extracted document (`platform` is one of
+  `linkedin`, `instagram`, `twitter`, `generic`, and only affects the
+  prompt's framing — no social platform APIs are called). Returns the
+  created analysis with the blended scores, tone, sentiment, target
+  audience, strengths, weaknesses, recommendations, and improved rewrite
 - `GET /api/v1/analyses` — list analyses (paginated: `skip`, `limit`)
 - `GET /api/v1/analyses/{id}` — fetch one analysis
 
-Planned (later phases): `POST /documents/{id}/analyze` (triggers
-extraction + AI analysis — added once the extraction/OCR/analysis
-pipeline exists). Full interactive docs at `http://localhost:8000/docs`
-(FastAPI's auto-generated OpenAPI UI) once the backend is running.
+Full interactive docs at `http://localhost:8000/docs` (FastAPI's
+auto-generated OpenAPI UI) once the backend is running.
 
 ## 10. Local setup
 
@@ -146,7 +179,8 @@ cp frontend/.env.example frontend/.env.local
 
 | Variable | Where | Purpose |
 |---|---|---|
-| `GEMINI_API_KEY` | backend | Gemini API key. Server-side only, never sent to the frontend. |
+| `GEMINI_API_KEY` | backend | Gemini API key. Server-side only, never sent to the frontend. Without it, `/analyze` fails gracefully with `AI_ANALYSIS_FAILED`. |
+| `GEMINI_MODEL` | backend | Optional override; defaults to `gemini-2.5-flash`. |
 | `DATABASE_URL` | backend | SQLAlchemy connection string. Defaults to local SQLite. |
 | `CORS_ORIGINS` | backend | Comma-separated list of allowed frontend origins. |
 | `TESSERACT_CMD` | backend | Optional path to the `tesseract` binary if not on `PATH` (common on Windows). |
@@ -192,15 +226,16 @@ pytest
 ```
 
 Covers file validation, the documents/analyses repositories and API
-endpoints, text normalization, and the extraction pipeline's
-native-vs-OCR decision logic, per-page fallback, and failure handling
-(corrupted files, no readable text, OCR engine errors). All of these run
-against an isolated in-memory SQLite database and a mocked OCR engine, so
-the suite passes with or without Tesseract installed. One additional test
-(`test_ocr_real_engine.py`) exercises the real Tesseract binary and is
-skipped automatically when it isn't found — install Tesseract and re-run
-`pytest` to bring it in. Frontend test setup lands alongside the
-components it covers (Phase 8).
+endpoints, text normalization, the extraction pipeline's native-vs-OCR
+decision logic and failure handling, deterministic scoring (metrics
+computation and the hybrid blend formula), and the Gemini provider
+(request/response handling, JSON/schema validation, error translation).
+Everything runs against an isolated in-memory SQLite database with the
+OCR engine and LLM provider both mocked, so the suite passes without
+Tesseract installed and without a real `GEMINI_API_KEY` or network
+access. One additional test (`test_ocr_real_engine.py`) exercises the
+real Tesseract binary and is skipped automatically when it isn't found.
+Frontend test setup lands alongside the components it covers (Phase 8).
 
 ## 15. Docker instructions
 
@@ -219,6 +254,11 @@ the backend, Vercel for the frontend).
 - Single-node SQLite: not intended for concurrent multi-writer production
   load.
 - OCR accuracy depends on scan/photo quality; no cloud OCR fallback.
+- The deterministic/AI blend weights (see section 7) are an initial,
+  documented choice, not a statistically tuned or validated model.
+- CTA and readability heuristics are simple (phrase-matching, Flesch
+  approximation) — they won't catch every real-world CTA or reading-level
+  edge case.
 
 ## 18. Future improvements
 
@@ -226,6 +266,9 @@ the backend, Vercel for the frontend).
 - Postgres for multi-user deployments
 - Additional LLM provider behind the existing `LLMProvider` interface
 - Batch/multi-document analysis
+- Tone/length-controlled content regeneration (spec section 17) via a
+  second prompt (`content_improvement.txt`), once the frontend has controls
+  for it — the core analyze flow already returns one improved rewrite
 
 ## Project structure
 
