@@ -6,11 +6,10 @@ not predictions of real engagement (see README "Known limitations").
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
 
 from app.core.database import Base
 
@@ -39,4 +38,15 @@ class Analysis(Base):
     recommendations: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     improved_content: Mapped[str] = mapped_column(Text, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # The deterministic ContentMetrics computed at analysis time (see
+    # ScoringService), stored so the results view can show word/hashtag/
+    # etc. counts without recomputing them from extracted_text on every read.
+    metrics: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+    # Client-side (not server_default) so this has microsecond precision —
+    # SQLite's CURRENT_TIMESTAMP is second-resolution, which would make
+    # "most recent analysis for this document" ambiguous on a re-analyze
+    # within the same second.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )

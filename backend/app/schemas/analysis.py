@@ -5,6 +5,24 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ContentMetricsSchema(BaseModel):
+    """Mirrors app.services.scoring_service.ContentMetrics — the
+    deterministic counts computed independently of the LLM."""
+
+    word_count: int
+    char_count: int
+    sentence_count: int
+    avg_sentence_length: float
+    hashtag_count: int
+    mention_count: int
+    url_count: int
+    emoji_count: int
+    question_count: int
+    has_cta: bool
+    paragraph_count: int
+    readability_score: int = Field(ge=0, le=100)
+
+
 class AnalysisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -26,6 +44,7 @@ class AnalysisResponse(BaseModel):
     weaknesses: list[str]
     recommendations: list[str]
     improved_content: str
+    metrics: ContentMetricsSchema
 
     created_at: datetime
 

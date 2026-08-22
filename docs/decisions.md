@@ -2,6 +2,127 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## TanStack Query: `retry: false`, `networkMode: "always"` app-wide
+
+Found via a real, reproducible bug while building the results page:
+navigating to a document that doesn't exist rendered a permanently blank
+page — no skeleton, no error, nothing — with the query stuck at
+`status: "pending"`, `fetchStatus: "paused"` forever. Root cause, traced
+into `@tanstack/query-core`'s `retryer.ts`: a scheduled retry only resumes
+when `canContinue()` is true, and that check requires
+`focusManager.isFocused()` in addition to being online — a retry attempt
+scheduled while the tab lacks focus pauses indefinitely waiting for a
+`focus` event that may never come. `networkMode: "always"` alone doesn't
+fix this (it only bypasses the *online* half of that check). Setting
+`retry: false` avoids the retry-scheduling path entirely — a failed
+request rejects immediately instead of ever reaching the pausable state.
+This app only talks to its own local backend, so automatic retries were
+buying little resilience anyway; failing fast and letting the user
+explicitly retry (a "Start over" button, a page reload) is more
+predictable than a retry that can silently hang. Worth knowing if this
+codebase ever adds a genuinely flaky/remote dependency — the fix would
+need to be more targeted than a blanket `retry: false` at that point.
+
+## GET /documents/{id}/analysis, not a document_id filter on /analyses
+
+The results page only knows the document id (from the URL) and needs
+"the analysis for this document." Rather than extend `GET /analyses` with
+a `document_id` query filter (which raises pagination-semantics questions
+for a filtered list that's really just fetching one thing), a dedicated
+nested endpoint returns the single most-recent `Analysis` for that
+document directly — reusing `AnalysisRepository.get_by_document_id`,
+already built in Phase 2. 404s with `NOT_FOUND` if the document exists
+but hasn't been analyzed yet, distinct from the document itself not
+existing (also 404, but the document lookup happens first).
+
+## Analysis.created_at moved from server_default to a Python-side default
+
+A document can be re-analyzed (e.g. for a different platform), so
+"the most recent analysis for this document" needed a real ordering
+guarantee. SQLite's `CURRENT_TIMESTAMP` (used via `server_default`) only
+has second resolution — two analyses created within the same second would
+tie, and `ORDER BY created_at DESC LIMIT 1` on a tie is not guaranteed to
+return the one that was actually inserted last. Switched `created_at` to
+a client-side `default=lambda: datetime.now(UTC)`, which has microsecond
+resolution. No migration was needed — Alembic doesn't autogenerate
+`server_default` removal by default (`compare_server_default` is off), so
+the change is Python/ORM-level only; a fresh `CREATE TABLE` never had a
+literal default baked into the DDL beyond what SQLAlchemy already omits.
+
+## Deterministic metrics are persisted on the Analysis row, not recomputed
+
+The `documents`/`analyses` schema originally had no way to return the
+deterministic `ContentMetrics` (word count, hashtag count, etc.) that
+`ScoringService` already computes internally to blend scores — Phase 4
+used them but never exposed them. The results dashboard needs to display
+them, and "integrate only with real backend data" ruled out recomputing
+them client-side (duplicate logic, risk of drifting from the backend's
+actual algorithm). Added a `metrics` JSON column to `analyses`, populated
+once at analysis time via `dataclasses.asdict(metrics)` — cheaper than
+joining back to the document's `extracted_text` and recomputing on every
+read, and metrics are a pure function of text that was already extracted,
+so nothing about storing them can go stale.
+
+## Processing stages reflect real request boundaries, not simulated timing
+
+The spec's suggested 7-stage processing UI (Uploading, Validating,
+Extracting, OCR, Analyzing, Generating, Complete) doesn't map to 7 real
+signals — the backend only exposes two request boundaries (`POST
+/documents` does upload+validate+extract+OCR in one call; `POST
+/documents/{id}/analyze` does analyze+generate in another). Rather than
+fabricate a timed animation pretending to track sub-steps we can't
+observe, `ProcessingStages` groups the spec's labels under whichever real
+request is in flight — steps 1-4 all show "active" together during the
+upload call, 5-6 during the analyze call. Honest about what's actually
+known, still delivers the requested step-by-step feel.
+
+## Phase 5's "success" state is a minimal summary, not the dashboard
+
+After a successful analysis, `/analyze` shows overall score, tone/
+sentiment, and top strengths — not the full score-breakdown grid, charts,
+or original-vs-improved comparison. That's explicitly Phase 6's scope
+("Results dashboard" is its own phase in the spec's plan); building it
+now would mean redoing it once Phase 6's actual design work happens.
+Phase 5's job was proving the upload → extract → analyze flow works
+end-to-end against the real API with real error handling, which it does.
+
+## Landing page's dashboard preview is schematic, not fabricated data
+
+The spec asks the landing page to "include a visual preview of the
+analysis dashboard." `DashboardPreview` shows dimension labels (Hook,
+Clarity, ...) with generic bar-length proportions and a literal `--/100`
+placeholder — never a specific fake score like "82/100." The instruction
+to not build fake analysis results is about the actual product flow, not
+a marketing graphic, but the preview still deliberately avoids anything
+that could be mistaken for a real result.
+
+## History/Insights are real routes with an honest empty state, not 404s
+
+The header nav (spec section 20) lists Analyze/History/Insights. Since
+those pages' real content is Phase 7, clicking them now shows a clean
+"coming soon" state rather than a broken link — the nav is genuinely
+complete even though two of the three destinations are placeholders.
+
+## No frontend component calls `fetch` directly
+
+Every backend call goes through `lib/api.ts`, which throws a typed
+`ApiError` (carrying the backend's `error_code`) rather than a generic
+`Error`. `lib/error-messages.ts` maps every backend error code (from
+`app/core/exceptions.py`) to a human-readable string, so a raw
+`error_code` or stack trace is never shown to the user — the same
+principle as the backend's own exception handling, mirrored on the
+client.
+
+## `nativeButton={false}` wherever Button renders as a Link
+
+This project's shadcn setup uses Base UI (`@base-ui/react`), not Radix —
+composition uses a `render` prop instead of `asChild`, and Base UI's
+`Button` defaults to `nativeButton: true` (it expects the element it
+renders as to be a real `<button>`). Every `<Button render={<Link .../>}>`
+needs `nativeButton={false}` or Base UI logs an accessibility warning
+about the rendered element not actually being a button. Caught via the
+browser console during manual verification, not by the type checker.
+
 ## Only content_analysis.txt exists; content_improvement.txt is deferred
 
 Spec section 16 names two prompt files. Only `content_analysis.txt` is

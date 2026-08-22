@@ -35,6 +35,11 @@ def test_analyze_returns_blended_scores_and_ai_fields(client, pdf_bytes):
     # readability is deterministic, not the AI's own guess
     assert body["readability_score"] != DEFAULT_AI_RESULT.readability_score
 
+    metrics = body["metrics"]
+    assert metrics["word_count"] > 0
+    assert metrics["hashtag_count"] == 1  # "#ProductLaunch" in the pdf_bytes fixture
+    assert metrics["readability_score"] == body["readability_score"]
+
 
 def test_analyze_marks_document_analyzed(client, pdf_bytes):
     document_id = _upload(client, pdf_bytes)
@@ -136,3 +141,40 @@ def test_analysis_is_retrievable_after_success(client, pdf_bytes):
     listed = client.get("/api/v1/analyses").json()
     assert len(listed) == 1
     assert listed[0]["id"] == created["id"]
+
+
+class TestGetDocumentAnalysis:
+    """GET /documents/{id}/analysis — lets the results page fetch an
+    analysis knowing only the document id (e.g. from the URL)."""
+
+    def test_returns_the_analysis_for_that_document(self, client, pdf_bytes):
+        document_id = _upload(client, pdf_bytes)
+        created = client.post(f"/api/v1/documents/{document_id}/analyze").json()
+
+        response = client.get(f"/api/v1/documents/{document_id}/analysis")
+
+        assert response.status_code == 200
+        assert response.json() == created
+
+    def test_404s_when_document_does_not_exist(self, client):
+        response = client.get("/api/v1/documents/does-not-exist/analysis")
+        assert response.status_code == 404
+        assert response.json()["error_code"] == "NOT_FOUND"
+
+    def test_404s_when_document_exists_but_has_not_been_analyzed(self, client, pdf_bytes):
+        document_id = _upload(client, pdf_bytes)
+
+        response = client.get(f"/api/v1/documents/{document_id}/analysis")
+
+        assert response.status_code == 404
+        assert response.json()["error_code"] == "NOT_FOUND"
+
+    def test_returns_the_most_recent_analysis_when_reanalyzed(self, client, pdf_bytes):
+        document_id = _upload(client, pdf_bytes)
+        client.post(f"/api/v1/documents/{document_id}/analyze?platform=generic")
+        second = client.post(f"/api/v1/documents/{document_id}/analyze?platform=linkedin").json()
+
+        response = client.get(f"/api/v1/documents/{document_id}/analysis")
+
+        assert response.status_code == 200
+        assert response.json()["id"] == second["id"]

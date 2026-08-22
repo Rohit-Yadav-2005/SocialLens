@@ -25,5 +25,11 @@ class AnalysisRepository:
         return list(self.db.execute(stmt).scalars().all())
 
     def get_by_document_id(self, document_id: str) -> Analysis | None:
-        stmt = select(Analysis).where(Analysis.document_id == document_id)
+        """Returns the most recent analysis for a document (a document can
+        be re-analyzed, e.g. for a different platform)."""
+        stmt = (
+            select(Analysis)
+            .where(Analysis.document_id == document_id)
+            .order_by(Analysis.created_at.desc())
+        )
         return self.db.execute(stmt).scalars().first()

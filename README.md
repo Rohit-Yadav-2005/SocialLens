@@ -6,13 +6,13 @@ SocialLens extracts text from uploaded PDFs and images (with OCR fallback
 for scanned documents), analyzes the content as social-media copy, scores
 it across several dimensions, and generates an improved rewrite.
 
-> **Status:** Phase 4 of 10 complete — `POST /documents/{id}/analyze` runs
-> the full content-analysis pipeline: deterministic metrics, a structured
-> Gemini call, and a hybrid score blend, persisted as an `analysis` row.
-> Missing API keys, request failures, and malformed AI responses all fail
-> gracefully with a clear error rather than crashing. The frontend UI
-> lands in later phases. See [docs/decisions.md](docs/decisions.md) for
-> the engineering log.
+> **Status:** Phase 6 of 10 complete — `/analyze/[documentId]` is the full
+> results dashboard: overall score gauge, a Recharts radar breakdown of
+> the five sub-scores, deterministic content metrics, strengths/
+> weaknesses, recommendations, and an original-vs-improved comparison with
+> copy-to-clipboard. `/history` and `/insights` are still navigable
+> placeholders — their real content is Phase 7. See
+> [docs/decisions.md](docs/decisions.md) for the engineering log.
 
 ## 1. Overview
 
@@ -43,6 +43,26 @@ database, local temp storage for uploads. No microservices, queues, or
 container orchestration. Full diagrams in
 [docs/architecture.md](docs/architecture.md); decision rationale in
 [docs/decisions.md](docs/decisions.md).
+
+**Frontend structure:** `app/` holds routes (App Router), `components/`
+is split by concern (`layout/`, `upload/`, `analysis/`, `landing/`,
+`providers/`, `ui/` for shadcn primitives), `lib/api.ts` is the one place
+that calls the backend (typed, throws a typed `ApiError`), `hooks/` holds
+TanStack Query orchestration, `types/` mirrors the backend's Pydantic
+schemas, and `validations/` holds the Zod client-side checks. No frontend
+component calls `fetch` directly — everything goes through `lib/api.ts`.
+
+**Results dashboard** (`/analyze/[documentId]`, `components/analysis/`):
+fetches the document and its analysis by id (`useDocumentAnalysis`,
+priming the cache from the just-completed analyze mutation so navigating
+there right after an analysis is instant, or fetching fresh on a direct
+visit/reload). Renders the overall score as a Recharts radial gauge, the
+five sub-scores as a Recharts radar chart plus individual cards,
+deterministic metrics, strengths/weaknesses/recommendations, and an
+original-vs-improved comparison (two-column desktop, stacked mobile) with
+copy-to-clipboard. Loading, error (e.g. not-analyzed-yet, not-found), and
+empty (no strengths/weaknesses returned) states are all handled
+explicitly — nothing is fabricated client-side.
 
 ## 4. Technology stack
 
@@ -113,9 +133,11 @@ caught and surfaced as a specific error code (`AI_ANALYSIS_FAILED` /
 
 SQLite for local dev and the initial deployment. Two tables: `documents`
 (upload metadata + extracted text) and `analyses` (scores, tone,
-sentiment, strengths/weaknesses/recommendations, improved content). Schema
-is dialect-neutral so a future move to Postgres is a connection-string
-change — see [docs/decisions.md](docs/decisions.md).
+sentiment, strengths/weaknesses/recommendations, improved content, and the
+deterministic `metrics` computed at analysis time — persisted rather than
+recomputed on every read). Schema is dialect-neutral so a future move to
+Postgres is a connection-string change — see
+[docs/decisions.md](docs/decisions.md).
 
 ## 9. API overview
 
@@ -135,7 +157,12 @@ REST API under `/api/v1`. Currently:
   `linkedin`, `instagram`, `twitter`, `generic`, and only affects the
   prompt's framing — no social platform APIs are called). Returns the
   created analysis with the blended scores, tone, sentiment, target
-  audience, strengths, weaknesses, recommendations, and improved rewrite
+  audience, strengths, weaknesses, recommendations, improved rewrite, and
+  deterministic `metrics`
+- `GET /api/v1/documents/{id}/analysis` — the most recent analysis for a
+  document (404 if it hasn't been analyzed yet). Lets the results page
+  fetch by document id alone, whether it just finished analyzing or the
+  page was reloaded/opened directly
 - `GET /api/v1/analyses` — list analyses (paginated: `skip`, `limit`)
 - `GET /api/v1/analyses/{id}` — fetch one analysis
 
@@ -194,7 +221,10 @@ npm install
 npm run dev
 ```
 
-Opens at `http://localhost:3000`.
+Opens at `http://localhost:3000`. Requires the backend running at the URL
+in `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`) for the
+`/analyze` page to work — the landing, history, and insights pages don't
+need it.
 
 ## 13. Running the backend
 
@@ -259,6 +289,14 @@ the backend, Vercel for the frontend).
 - CTA and readability heuristics are simple (phrase-matching, Flesch
   approximation) — they won't catch every real-world CTA or reading-level
   edge case.
+- `/history` and `/insights` are navigable placeholders; their real
+  content lands in Phase 7. The results dashboard doesn't yet show
+  weakness "severity" (spec's suggested field) — the AI response doesn't
+  include one, and inventing a fake severity level would be worse than
+  omitting it.
+- TanStack Query is configured with `retry: false` app-wide (see
+  [docs/decisions.md](docs/decisions.md)) — a failed request surfaces
+  immediately rather than retrying automatically.
 
 ## 18. Future improvements
 

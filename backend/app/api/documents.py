@@ -55,3 +55,12 @@ def analyze_document(
     document = DocumentService(db).get(document_id)
     analysis = AnalysisService(db).analyze_document(document, platform=platform)
     return AnalysisResponse.model_validate(analysis)
+
+
+@router.get("/{document_id}/analysis", response_model=AnalysisResponse)
+def get_document_analysis(document_id: str, db: Session = Depends(get_db)) -> AnalysisResponse:
+    """The most recent analysis for this document (404 if it hasn't been
+    analyzed yet). Lets the results page fetch by document id alone."""
+    DocumentService(db).get(document_id)  # 404s if the document itself doesn't exist
+    analysis = AnalysisService(db).get_by_document_id(document_id)
+    return AnalysisResponse.model_validate(analysis)

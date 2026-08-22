@@ -6,6 +6,8 @@ actually called), so read-only operations (`get`, `list`) never require
 GEMINI_API_KEY to be set — see docs/decisions.md.
 """
 
+from dataclasses import asdict
+
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -33,6 +35,12 @@ class AnalysisService:
 
     def list(self, *, skip: int = 0, limit: int = 50) -> list[Analysis]:
         return self.repo.list(skip=skip, limit=limit)
+
+    def get_by_document_id(self, document_id: str) -> Analysis:
+        analysis = self.repo.get_by_document_id(document_id)
+        if analysis is None:
+            raise NotFoundError(f"Document '{document_id}' has not been analyzed yet.")
+        return analysis
 
     def analyze_document(self, document: Document, *, platform: Platform = "generic") -> Analysis:
         if not document.extracted_text:
@@ -64,6 +72,7 @@ class AnalysisService:
                 weaknesses=ai_result.weaknesses,
                 recommendations=ai_result.recommendations,
                 improved_content=ai_result.improved_content,
+                metrics=asdict(metrics),
             )
         except Exception:
             # Extraction already succeeded — an analysis failure shouldn't

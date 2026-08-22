@@ -26,6 +26,20 @@ def _analysis_fields(document_id: str) -> dict:
         "weaknesses": ["Weak call to action"],
         "recommendations": ["Add a direct CTA"],
         "improved_content": "Improved post text.",
+        "metrics": {
+            "word_count": 42,
+            "char_count": 250,
+            "sentence_count": 4,
+            "avg_sentence_length": 10.5,
+            "hashtag_count": 2,
+            "mention_count": 1,
+            "url_count": 0,
+            "emoji_count": 1,
+            "question_count": 1,
+            "has_cta": True,
+            "paragraph_count": 2,
+            "readability_score": 85,
+        },
     }
 
 
@@ -52,6 +66,20 @@ def test_get_by_document_id(db_session_factory):
     found = repo.get_by_document_id(document.id)
     assert found is not None
     assert found.document_id == document.id
+
+
+def test_get_by_document_id_returns_most_recent_when_reanalyzed(db_session_factory):
+    db = db_session_factory()
+    document = _make_document(db)
+    repo = AnalysisRepository(db)
+    now = datetime.now()
+    repo.create(**_analysis_fields(document.id), created_at=now - timedelta(minutes=5))
+    newest = repo.create(**_analysis_fields(document.id), created_at=now)
+
+    found = repo.get_by_document_id(document.id)
+
+    assert found is not None
+    assert found.id == newest.id
 
 
 def test_list_orders_newest_first(db_session_factory):
