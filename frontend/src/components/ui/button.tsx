@@ -8,7 +8,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // Spectral fill + a top inner highlight so the primary CTA reads as a
+        // lit surface rather than a flat swatch. Glow intensifies on hover.
+        default:
+          "bg-spectral relative text-white shadow-[0_1px_0_oklch(1_0_0/0.28)_inset,0_6px_20px_-8px_var(--glow-primary)] hover:shadow-[0_1px_0_oklch(1_0_0/0.28)_inset,0_10px_28px_-8px_var(--glow-primary)] hover:brightness-110",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

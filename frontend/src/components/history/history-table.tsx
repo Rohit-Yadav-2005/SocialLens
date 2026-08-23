@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
 import { StatusBadge } from "@/components/history/status-badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { scoreLabel } from "@/lib/score-utils";
 import type { HistoryRow } from "@/hooks/use-history";
 
 type SortKey = "filename" | "overallScore" | "status" | "created_at";
@@ -90,7 +91,7 @@ export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border">
+      <div className="shadow-card overflow-x-auto rounded-2xl border border-border/70 bg-card/70 backdrop-blur-sm">
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
@@ -121,23 +122,35 @@ export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
           </thead>
           <tbody>
             {visibleRows.map((row) => (
-              <tr key={row.id} className="border-b border-border last:border-0">
+              <tr
+                key={row.id}
+                className="border-b border-border/60 transition-colors last:border-0 hover:bg-accent/30"
+              >
                 <td className="p-0">
                   <Link
                     href={`/analyze/${row.id}`}
-                    className="block truncate px-4 py-3 font-medium text-foreground hover:text-primary"
+                    className="block truncate px-4 py-3.5 font-medium text-foreground transition-colors hover:text-primary"
                     title={row.filename}
                   >
                     {row.filename}
                   </Link>
                 </td>
-                <td className="px-4 py-3 tabular-nums text-muted-foreground">
+                <td
+                  data-numeric
+                  className="px-4 py-3.5 font-medium"
+                  style={{
+                    color:
+                      row.overallScore !== null
+                        ? scoreLabel(row.overallScore).colorVar
+                        : "var(--muted-foreground)",
+                  }}
+                >
                   {row.overallScore !== null ? `${row.overallScore}/100` : "—"}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5">
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">{formatDate(row.created_at)}</td>
+                <td className="px-4 py-3.5 text-muted-foreground">{formatDate(row.created_at)}</td>
               </tr>
             ))}
           </tbody>

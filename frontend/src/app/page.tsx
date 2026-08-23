@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { FileSearch, ScanText, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowRight, FileSearch, ScanText, Sparkles, TrendingUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
 
 const FEATURES = [
@@ -11,23 +10,27 @@ const FEATURES = [
     title: "Extract",
     description:
       "Native PDF text extraction with automatic OCR fallback for scanned documents and screenshots.",
+    span: "lg:col-span-5",
   },
   {
     icon: FileSearch,
     title: "Analyze",
     description:
       "Deterministic content metrics blended with AI evaluation of hook, clarity, engagement, and CTA strength.",
+    span: "lg:col-span-7",
   },
   {
     icon: Sparkles,
     title: "Improve",
     description:
       "Specific, actionable recommendations and an AI-rewritten version that keeps your original meaning.",
+    span: "lg:col-span-7",
   },
   {
     icon: TrendingUp,
     title: "Track",
     description: "Build a history of every analysis and watch your scores trend over time.",
+    span: "lg:col-span-5",
   },
 ];
 
@@ -52,93 +55,196 @@ const STEPS = [
 export default function Home() {
   return (
     <div className="flex-1">
-      <section className="mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6 sm:pt-20 sm:pb-28 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          <div>
-            <span className="inline-flex items-center rounded-full border border-border bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
-              Understand. Improve. Engage.
-            </span>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-              Turn your content into higher-engagement posts.
-            </h1>
-            <p className="mt-5 max-w-lg text-lg text-muted-foreground text-pretty">
-              Upload your PDF or image. SocialLens extracts the content, analyzes it,
-              identifies weaknesses, and suggests improvements.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" className="h-11 px-6 text-base" nativeButton={false} render={<Link href="/analyze" />}>
-                Analyze Content
-              </Button>
-            </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              PDF, PNG, or JPG &middot; Free to try &middot; No account required
-            </p>
-          </div>
+      {/* ---------------- Hero ---------------- */}
+      <section className="relative overflow-hidden">
+        {/* Grid floor, faded out toward the edges so it never reads as a table. */}
+        <div
+          aria-hidden="true"
+          className="grid-lines pointer-events-none absolute inset-0 opacity-[0.55] [mask-image:radial-gradient(ellipse_75%_60%_at_50%_35%,#000_20%,transparent_75%)] dark:opacity-40"
+        />
 
-          <div className="flex justify-center lg:justify-end">
-            <DashboardPreview />
+        <div className="relative mx-auto max-w-6xl px-4 pt-20 pb-24 sm:px-6 sm:pt-28 sm:pb-32 lg:px-8">
+          <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
+            <div className="animate-fade-up">
+              <span className="spectral-ring inline-flex items-center gap-2 rounded-full bg-card/70 px-3.5 py-1.5 text-xs font-medium backdrop-blur">
+                <span className="relative flex size-1.5">
+                  <span className="bg-spectral absolute inline-flex size-full animate-ping rounded-full opacity-70" />
+                  <span className="bg-spectral relative inline-flex size-1.5 rounded-full" />
+                </span>
+                Understand. Improve. Engage.
+              </span>
+
+              <h1 className="font-display mt-7 text-[2.75rem] leading-[1.02] font-semibold text-balance sm:text-6xl lg:text-[4.1rem]">
+                Turn your content into{" "}
+                <span className="text-spectral">higher-engagement</span> posts.
+              </h1>
+
+              <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground text-pretty">
+                Upload your PDF or image. SocialLens extracts the content, analyzes it,
+                identifies weaknesses, and suggests improvements.
+              </p>
+
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                <Button
+                  size="lg"
+                  className="group h-12 gap-2 px-7 text-base"
+                  nativeButton={false}
+                  render={<Link href="/analyze" />}
+                >
+                  Analyze Content
+                  <ArrowRight
+                    className="size-4 transition-transform duration-200 group-hover:translate-x-1"
+                    aria-hidden="true"
+                  />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-12 px-7 text-base"
+                  nativeButton={false}
+                  render={<Link href="/insights" />}
+                >
+                  View Insights
+                </Button>
+              </div>
+
+              <p className="mt-5 text-xs text-muted-foreground">
+                PDF, PNG, or JPG &middot; Free to try &middot; No account required
+              </p>
+            </div>
+
+            <div
+              className="animate-fade-up flex justify-center lg:justify-end [animation-delay:180ms]"
+            >
+              <DashboardPreview />
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="border-t border-border bg-muted/30 py-20">
+      {/* ---------------- Features (asymmetric bento) ---------------- */}
+      <section className="relative border-t border-border/60 py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <div className="max-w-2xl">
+            <p className="text-spectral text-xs font-semibold tracking-[0.18em] uppercase">
+              The pipeline
+            </p>
+            <h2 className="font-display mt-3 text-3xl font-semibold text-balance sm:text-4xl">
               A complete content review, in seconds
             </h2>
-            <p className="mt-3 text-muted-foreground">
+            <p className="mt-4 text-lg text-muted-foreground text-pretty">
               Deterministic metrics and AI judgment, combined into one transparent score.
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map((feature) => (
-              <Card key={feature.title} className="border-border p-5">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-accent">
-                  <feature.icon className="size-4.5 text-primary" aria-hidden="true" />
+          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-12">
+            {FEATURES.map((feature, index) => (
+              <article
+                key={feature.title}
+                style={{ animationDelay: `${index * 90}ms` }}
+                className={`animate-fade-up lift shadow-card group relative overflow-hidden rounded-2xl border border-border/70 bg-card/80 p-7 backdrop-blur-sm hover:border-transparent ${feature.span}`}
+              >
+                {/* Gradient hairline, revealed on hover. */}
+                <span
+                  aria-hidden="true"
+                  className="spectral-ring pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                />
+                {/* Corner bloom. */}
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -top-16 -right-16 size-40 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
+                  style={{ background: "var(--glow-primary)" }}
+                />
+
+                <span className="bg-spectral relative flex size-11 items-center justify-center rounded-xl shadow-[0_1px_0_oklch(1_0_0/0.3)_inset]">
+                  <feature.icon className="size-5 text-white" aria-hidden="true" />
                 </span>
-                <h3 className="mt-4 font-medium">{feature.title}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">{feature.description}</p>
-              </Card>
+
+                <h3 className="font-display relative mt-6 text-xl font-semibold">
+                  {feature.title}
+                </h3>
+                <p className="relative mt-2 text-[0.9375rem] leading-relaxed text-muted-foreground">
+                  {feature.description}
+                </p>
+              </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-20">
+      {/* ---------------- How it works ---------------- */}
+      <section className="relative border-t border-border/60 py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">How it works</h2>
+          <div className="max-w-2xl">
+            <p className="text-spectral text-xs font-semibold tracking-[0.18em] uppercase">
+              Three steps
+            </p>
+            <h2 className="font-display mt-3 text-3xl font-semibold sm:text-4xl">How it works</h2>
           </div>
 
-          <div className="mt-12 grid gap-8 sm:grid-cols-3">
-            {STEPS.map((step) => (
-              <div key={step.number} className="text-center sm:text-left">
-                <span className="font-mono text-sm font-medium text-primary">{step.number}</span>
-                <h3 className="mt-2 font-medium">{step.title}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">{step.description}</p>
-              </div>
-            ))}
+          <div className="relative mt-14">
+            {/* Spectral rail connecting the steps. */}
+            <div
+              aria-hidden="true"
+              className="bg-spectral absolute top-6 right-0 left-0 hidden h-px opacity-45 sm:block"
+            />
+
+            <div className="grid gap-10 sm:grid-cols-3 sm:gap-8">
+              {STEPS.map((step, index) => (
+                <div
+                  key={step.number}
+                  style={{ animationDelay: `${index * 120}ms` }}
+                  className="animate-fade-up relative"
+                >
+                  <div className="bg-spectral relative flex size-12 items-center justify-center rounded-xl shadow-[0_1px_0_oklch(1_0_0/0.3)_inset,0_8px_24px_-10px_var(--glow-primary)]">
+                    <span className="font-mono text-sm font-semibold text-white">
+                      {step.number}
+                    </span>
+                  </div>
+                  <h3 className="font-display mt-5 text-xl font-semibold">{step.title}</h3>
+                  <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted-foreground">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="border-t border-border py-20">
-        <div className="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Ready to improve your next post?
-          </h2>
-          <p className="mt-3 text-muted-foreground">
-            Upload a PDF or image and get your first analysis in under a minute.
-          </p>
-          <Button
-            size="lg"
-            className="mt-7 h-11 px-6 text-base"
-            nativeButton={false} render={<Link href="/analyze" />}
-          >
-            Analyze Content
-          </Button>
+      {/* ---------------- Closing CTA ---------------- */}
+      <section className="relative py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/80 px-6 py-16 text-center backdrop-blur-sm sm:px-16">
+            <div
+              aria-hidden="true"
+              className="bg-spectral pointer-events-none absolute inset-0 opacity-[0.09]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-28 left-1/2 size-72 -translate-x-1/2 rounded-full blur-[100px]"
+              style={{ background: "var(--glow-primary)" }}
+            />
+
+            <h2 className="font-display relative text-3xl font-semibold text-balance sm:text-4xl">
+              Ready to improve your next post?
+            </h2>
+            <p className="relative mx-auto mt-4 max-w-md text-lg text-muted-foreground text-pretty">
+              Upload a PDF or image and get your first analysis in under a minute.
+            </p>
+            <Button
+              size="lg"
+              className="group relative mt-9 h-12 gap-2 px-7 text-base"
+              nativeButton={false}
+              render={<Link href="/analyze" />}
+            >
+              Analyze Content
+              <ArrowRight
+                className="size-4 transition-transform duration-200 group-hover:translate-x-1"
+                aria-hidden="true"
+              />
+            </Button>
+          </div>
         </div>
       </section>
     </div>

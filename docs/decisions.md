@@ -2,6 +2,52 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Visual identity: "Prism", derived from the product name
+
+The UI was a stock shadcn install — `oklch(1 0 0)` white, the default
+violet-blue primary, flat `ring-1` cards, Geist at `font-semibold
+tracking-tight`, and a four-identical-icon-squares feature grid. Every one
+of those is a default you get for free, which is exactly why the result
+read as generic: nothing on the page was a *choice*.
+
+Rather than swap in a different arbitrary accent colour, the identity is
+derived from the product's own name. SocialLens → a lens refracts light
+into a spectrum. That gives one idea the whole system follows from:
+
+- **Spectral gradient** (`--spectral`, violet → indigo → cyan → teal) as
+  the brand signature — logo mark, primary buttons, section eyebrows,
+  active nav underline, the improved-content card.
+- **Score scale mapped onto the spectrum**: rose (needs work) → amber
+  (fair) → violet (good) → teal (excellent), so `chart-1..5` and
+  `scoreLabel()` are the same visual language rather than unrelated
+  palettes. A score's colour now *means* something.
+- **Never pure black or white**: both themes carry a blue-violet cast
+  (`oklch(0.155 0.021 279)` dark / `oklch(0.982 0.005 285)` light). Pure
+  neutrals are the single biggest "default template" tell.
+- **Space Grotesk for display**, Geist for body, Geist Mono for figures —
+  headings previously differed from body text only by weight, which is
+  what made the type feel flat.
+- **Texture and depth**: an SVG-noise grain overlay, drifting blurred
+  glow orbs, a masked grid floor in the hero, gradient hairline borders
+  (`.spectral-ring`, via `mask-composite: exclude` — a gradient
+  `border-image` can't do rounded corners), and colour-tinted shadows.
+
+Two constraints were deliberately preserved through the redesign:
+
+1. **`DashboardPreview` still shows `--/100` and no fabricated scores.**
+   It's more visually elaborate now, but the rule from the landing-page
+   decision below still holds — marketing art must not look like a real
+   result.
+2. **`ProcessingStages`' icon classes were left untouched.** Its tests
+   assert on literal `bg-primary` / `text-primary` / `border-destructive`
+   class names, so only the surrounding container was restyled. Worth
+   knowing before refactoring that component: the class names are load-
+   bearing.
+
+All 71 frontend tests and ESLint still pass, and both themes plus mobile
+were verified in a real browser (no horizontal overflow at 375px; every
+animation confirmed running).
+
 ## Testing stack: Vitest + React Testing Library, plus one Playwright test
 
 Vitest (not Jest) for unit/component tests — it shares Vite's transform

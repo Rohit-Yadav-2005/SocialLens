@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Sparkles } from "lucide-react";
+import { ArrowRight, Menu } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { LogoMark } from "@/components/layout/logo";
 import {
   Sheet,
   SheetContent,
@@ -39,11 +40,19 @@ function NavLink({
       onClick={onNavigate}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "text-sm font-medium transition-colors hover:text-foreground",
-        isActive ? "text-foreground" : "text-muted-foreground",
+        "group relative rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-200",
+        isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >
       {label}
+      {/* Spectral underline: full width on the active route, wiping in on hover. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "bg-spectral absolute inset-x-3 -bottom-px h-px origin-left transition-transform duration-300 ease-out",
+          isActive ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100",
+        )}
+      />
     </Link>
   );
 }
@@ -52,24 +61,34 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <header className="glass sticky top-0 z-40 border-b border-border/60">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sparkles className="size-4" aria-hidden="true" />
-          </span>
-          <span className="text-base">SocialLens</span>
+        <Link
+          href="/"
+          className="group flex items-center gap-2.5 font-semibold tracking-tight"
+        >
+          <LogoMark className="size-7 transition-transform duration-500 ease-out group-hover:rotate-90" />
+          <span className="font-display text-[1.0625rem] tracking-tight">SocialLens</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
           {NAV_LINKS.map((link) => (
             <NavLink key={link.href} {...link} />
           ))}
         </nav>
 
         <div className="hidden md:block">
-          <Button size="lg" className="h-9 px-4" nativeButton={false} render={<Link href="/analyze" />}>
+          <Button
+            size="lg"
+            className="group h-9 gap-1.5 px-4"
+            nativeButton={false}
+            render={<Link href="/analyze" />}
+          >
             Analyze Content
+            <ArrowRight
+              className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
           </Button>
         </div>
 
@@ -83,9 +102,12 @@ export function Header() {
           </SheetTrigger>
           <SheetContent side="right">
             <SheetHeader>
-              <SheetTitle>Menu</SheetTitle>
+              <SheetTitle className="flex items-center gap-2.5">
+                <LogoMark className="size-6" />
+                SocialLens
+              </SheetTitle>
             </SheetHeader>
-            <nav className="flex flex-col gap-4 px-4" aria-label="Primary">
+            <nav className="flex flex-col gap-1 px-4" aria-label="Primary">
               {NAV_LINKS.map((link) => (
                 <NavLink key={link.href} {...link} onNavigate={() => setMobileMenuOpen(false)} />
               ))}
@@ -93,7 +115,8 @@ export function Header() {
             <div className="mt-auto p-4">
               <Button
                 className="w-full"
-                nativeButton={false} render={<Link href="/analyze" onClick={() => setMobileMenuOpen(false)} />}
+                nativeButton={false}
+                render={<Link href="/analyze" onClick={() => setMobileMenuOpen(false)} />}
               >
                 Analyze Content
               </Button>

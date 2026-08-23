@@ -13,9 +13,9 @@ export function CommonWeaknessesChart({ weaknesses }: CommonWeaknessesChartProps
   const hasData = weaknesses.length > 0;
 
   return (
-    <Card className="border-border shadow-sm">
+    <Card>
       <CardHeader>
-        <CardTitle>Most common weaknesses</CardTitle>
+        <CardTitle className="text-lg">Most common weaknesses</CardTitle>
         <p className="text-sm text-muted-foreground">
           Grouped from AI-identified weaknesses by keyword — an approximate signal, not an
           exact count.
@@ -46,16 +46,28 @@ export function CommonWeaknessesChart({ weaknesses }: CommonWeaknessesChartProps
                   tickLine={false}
                   axisLine={false}
                 />
+                <defs>
+                  <linearGradient id="weakness-fill" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--chart-1)" />
+                    <stop offset="100%" stopColor="var(--chart-2)" />
+                  </linearGradient>
+                </defs>
                 <Tooltip
-                  cursor={{ fill: "var(--muted)" }}
+                  cursor={{ fill: "var(--muted)", opacity: 0.5 }}
                   contentStyle={{
                     background: "var(--popover)",
                     border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-md)",
+                    borderRadius: "var(--radius-lg)",
                     fontSize: 12,
+                    boxShadow: "var(--shadow-card)",
                   }}
                 />
-                <Bar dataKey="count" fill="var(--primary)" radius={[0, 4, 4, 0]} barSize={20} />
+                <Bar
+                  dataKey="count"
+                  fill="url(#weakness-fill)"
+                  radius={[0, 6, 6, 0]}
+                  barSize={22}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

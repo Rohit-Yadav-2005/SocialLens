@@ -10,6 +10,7 @@ import {
 } from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { scoreLabel } from "@/lib/score-utils";
 import type { AnalysisResponse } from "@/types/api";
 
 interface Dimension {
@@ -40,49 +41,74 @@ export function ScoreBreakdown({ analysis }: ScoreBreakdownProps) {
   }));
 
   return (
-    <Card className="border-border shadow-sm">
+    <Card>
       <CardHeader>
-        <CardTitle>Score breakdown</CardTitle>
+        <CardTitle className="text-lg">Score breakdown</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr] lg:items-center">
-        <div className="h-64">
+      <CardContent className="grid gap-8 lg:grid-cols-[minmax(0,340px)_1fr] lg:items-center">
+        <div className="relative h-72">
+          {/* Bloom behind the radar so it doesn't float on a flat plane. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-8 rounded-full blur-[60px]"
+            style={{ background: "var(--glow-primary)" }}
+          />
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={chartData} outerRadius="72%">
-              <PolarGrid stroke="var(--border)" />
+              <PolarGrid stroke="var(--border)" strokeDasharray="3 3" />
               <PolarAngleAxis
                 dataKey="dimension"
-                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 12, fontWeight: 500 }}
               />
               <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
               <Radar
                 dataKey="score"
                 stroke="var(--primary)"
+                strokeWidth={2}
                 fill="var(--primary)"
-                fillOpacity={0.25}
+                fillOpacity={0.28}
+                dot={{ r: 3, fill: "var(--primary)", strokeWidth: 0 }}
               />
             </RadarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {DIMENSIONS.map((dimension) => {
+          {DIMENSIONS.map((dimension, index) => {
             const value = analysis[dimension.key];
+            const { colorVar } = scoreLabel(value);
+
             return (
               <div
                 key={dimension.key}
-                className="rounded-lg border border-border p-3.5"
+                style={{ animationDelay: `${index * 70}ms` }}
+                className="animate-fade-up group rounded-xl border border-border/70 bg-background/40 p-4 transition-colors hover:border-border"
               >
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-baseline justify-between gap-2">
                   <span className="text-sm font-medium">{dimension.label}</span>
-                  <span className="text-sm font-semibold tabular-nums">{value}</span>
+                  <span
+                    data-numeric
+                    className="font-display text-lg font-semibold"
+                    style={{ color: colorVar }}
+                  >
+                    {value}
+                  </span>
                 </div>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+
+                <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${value}%` }}
+                    className="animate-grow-bar h-full origin-left rounded-full"
+                    style={{
+                      width: `${value}%`,
+                      background: `linear-gradient(90deg, color-mix(in oklch, ${colorVar}, transparent 45%), ${colorVar})`,
+                      animationDelay: `${index * 70 + 120}ms`,
+                    }}
                   />
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">{dimension.description}</p>
+
+                <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+                  {dimension.description}
+                </p>
               </div>
             );
           })}

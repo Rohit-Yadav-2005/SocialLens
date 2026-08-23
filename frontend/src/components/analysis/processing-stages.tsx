@@ -55,9 +55,14 @@ export function ProcessingStages({ stage, failedPhase = null }: ProcessingStages
     <div
       role="status"
       aria-live="polite"
-      className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"
+      className="shadow-card relative overflow-hidden rounded-2xl border border-border/70 bg-card/80 p-6 backdrop-blur-sm"
     >
-      <ul className="flex flex-col gap-3">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-20 -left-16 size-56 rounded-full opacity-40 blur-[80px]"
+        style={{ background: "var(--glow-primary)" }}
+      />
+      <ul className="relative flex flex-col gap-3.5">
         {STEPS.map((step) => {
           const status = statusFor(stage, step.phase, failedPhase);
           return (

@@ -34,9 +34,14 @@ export default function AnalyzePage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Analyze your content</h1>
-        <p className="mt-2 text-muted-foreground">
+      <div className="animate-fade-up text-center">
+        <p className="text-spectral text-xs font-semibold tracking-[0.18em] uppercase">
+          Step 01
+        </p>
+        <h1 className="font-display mt-3 text-4xl font-semibold text-balance sm:text-5xl">
+          Analyze your content
+        </h1>
+        <p className="mx-auto mt-4 max-w-md text-lg text-muted-foreground text-pretty">
           Upload a PDF or image and get a scored breakdown with actionable recommendations.
         </p>
       </div>
@@ -75,7 +80,7 @@ export default function AnalyzePage() {
             <Button
               onClick={() => file && submit({ file, platform })}
               disabled={!file || isPending || stage === "complete"}
-              className="h-10 flex-1 text-base"
+              className="h-12 flex-1 text-base"
             >
               {isPending || stage === "complete" ? "Analyzing…" : "Analyze Content"}
             </Button>

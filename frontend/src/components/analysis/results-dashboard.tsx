@@ -15,12 +15,15 @@ interface ResultsDashboardProps {
 export function ResultsDashboard({ document, analysis }: ResultsDashboardProps) {
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+      <div className="animate-fade-up flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-spectral text-xs font-semibold tracking-[0.18em] uppercase">
+            Report
+          </p>
+          <h1 className="font-display mt-2.5 text-3xl font-semibold sm:text-4xl">
             Analysis results
           </h1>
-          <p className="mt-1 truncate text-sm text-muted-foreground" title={document.filename}>
+          <p className="mt-2 truncate text-sm text-muted-foreground" title={document.filename}>
             {document.filename}
           </p>
         </div>

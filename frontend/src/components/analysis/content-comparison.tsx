@@ -36,23 +36,37 @@ interface ContentComparisonProps {
 export function ContentComparison({ originalContent, improvedContent }: ContentComparisonProps) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      <Card className="border-border shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Original content</CardTitle>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle className="text-lg text-muted-foreground">Original content</CardTitle>
           <CopyButton text={originalContent} copyKey="original" />
         </CardHeader>
         <CardContent>
-          <p className="text-sm whitespace-pre-wrap text-foreground">{originalContent}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+            {originalContent}
+          </p>
         </CardContent>
       </Card>
 
-      <Card className="border-primary/30 shadow-sm ring-1 ring-primary/10">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>AI-improved content</CardTitle>
+      {/* The improved rewrite is the payoff of the whole flow — it gets the
+          gradient hairline and bloom so the eye lands here first. */}
+      <Card className="spectral-ring relative overflow-hidden border-transparent">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 -right-20 size-64 rounded-full opacity-40 blur-[80px]"
+          style={{ background: "var(--glow-primary)" }}
+        />
+
+        <CardHeader className="relative flex flex-row items-center justify-between gap-3">
+          <CardTitle className="text-lg">
+            <span className="text-spectral">AI-improved content</span>
+          </CardTitle>
           <CopyButton text={improvedContent} copyKey="improved" />
         </CardHeader>
-        <CardContent>
-          <p className="text-sm whitespace-pre-wrap text-foreground">{improvedContent}</p>
+        <CardContent className="relative">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+            {improvedContent}
+          </p>
         </CardContent>
       </Card>
     </div>
