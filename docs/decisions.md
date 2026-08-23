@@ -2,6 +2,90 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Testing stack: Vitest + React Testing Library, plus one Playwright test
+
+Vitest (not Jest) for unit/component tests — it shares Vite's transform
+pipeline, needs near-zero config for a TypeScript + React 19 project, and
+is the de facto default for new Vite-adjacent projects. React Testing
+Library on top, since it tests behavior (what's on screen, what a user
+can click) rather than component internals.
+
+For the one required end-to-end test, Playwright drives the *real* app in
+a *real* browser rather than simulating the flow in jsdom — this is the
+one test in the suite that would have caught two real bugs found earlier
+by manual browser testing (Phase 5's Base UI `nativeButton` warning,
+Phase 6's TanStack retry/focus-pause bug) automatically. Scoped to
+exactly one test, per the assessment's "at least one" ask and the
+project's "don't over-engineer" principle — broader E2E coverage would
+duplicate what the component tests and backend integration tests already
+cover more cheaply.
+
+## E2E test mocks the backend at the network layer, not a real stack
+
+`page.route()` intercepts the frontend's calls to `/api/v1/*` and returns
+canned JSON rather than running a real FastAPI + Gemini + Tesseract
+backend during the test. This E2E test's job is to verify the frontend's
+own wiring — component composition, TanStack Query, client-side routing,
+rendering — not to re-prove backend correctness, which the backend's 136
+pytest tests already do far more thoroughly and cheaply. It also means
+the test needs no `GEMINI_API_KEY`, no Tesseract, and no backend process
+running at all, so it's fast and fully deterministic.
+
+## Both Vitest and Playwright needed non-default process/pool settings
+
+Vitest's default "forks" pool (spawns child OS processes to isolate test
+files) hung indefinitely on worker startup in this sandboxed dev
+environment — fixed with `pool: "threads"` in `vitest.config.mts`
+(worker threads instead of child processes). Separately, Playwright's
+`webServer` auto-spawn of `npm run dev` timed out the same way, even
+though running `npm run dev` directly worked fine in under 2 seconds —
+same underlying class of issue (this specific sandbox restricting some
+child-process-spawning paths), unrelated to Vitest's. The `webServer`
+config block was kept as-is (it's the correct setup for a normal
+machine, and `reuseExistingServer: true` already provides a working
+fallback — start the dev server yourself first, and Playwright reuses
+it) rather than removed, since removing it would only trade convenience
+on a normal machine for no benefit here.
+
+## Two real bugs found and fixed while writing tests, not just reported
+
+1. **`ProcessingStages`'s error-state logic was dead and wrong.** Writing
+   a test for the "analysis failed after upload succeeded" case revealed
+   two problems at once: `analyze/page.tsx` never actually rendered
+   `ProcessingStages` when `stage === "error"` (so the branch was
+   unreachable), and even if it had, the logic didn't know *which* phase
+   had failed — it unconditionally showed upload steps as "active" and
+   analyze steps as "pending" regardless of whether analysis is what
+   actually failed. Fixed by having `useAnalyzeFlow` track `failedPhase`
+   (captured from a ref right before the failing call), adding a real
+   "failed" step status (distinct from "pending"/"active"/"done"), and
+   wiring the page to render `ProcessingStages` during errors too. Now a
+   user who gets this far sees exactly how far the pipeline got.
+2. **`DocumentRepository.delete()` was dead code.** No API endpoint or
+   service method ever called it — nothing in the app exposes document
+   deletion. Removed rather than given a test, per "if you're certain
+   something is unused, delete it" — a test would have just documented
+   that dead code works, not that it's needed.
+
+## jsdom-specific test gotchas worth remembering
+
+- `navigator.clipboard` is a getter-only stub in jsdom 30 — mocking it
+  needs `Object.defineProperty(navigator, "clipboard", {...})`, not
+  `Object.assign`.
+- A `setTimeout` callback that triggers a React state update (like the
+  copy-button's "revert after 2s" behavior) needs its timer advancement
+  wrapped in `act()` explicitly when using fake timers — Testing
+  Library's automatic `act()` wrapping only covers user-event/fireEvent
+  calls, not code that runs later on its own.
+- `userEvent.upload()` respects the file input's `accept` attribute, the
+  same way a real OS file picker would — a wrong-file-type test needs to
+  go through a `drop` event instead, since drag-and-drop bypasses `accept`
+  entirely (both in real browsers and in this test).
+- Base UI's `Button` composed with `render={<Link/>}` reports
+  `role="button"`, not the browser-default `role="link"` an `<a href>`
+  normally gets — matches its visual/keyboard button semantics
+  intentionally, not a bug. Query it in tests accordingly.
+
 ## Document.created_at/updated_at also moved to a client-side default
 
 The same bug fixed for `Analysis.created_at` in Phase 6 (SQLite's

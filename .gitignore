@@ -28,6 +28,12 @@ frontend/next-env.d.ts
 frontend/*.tsbuildinfo
 npm-debug.log*
 
+# --- Frontend testing ---
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/coverage/
+
 # --- Claude Code session state ---
 .claude/scheduled_tasks.lock
 

@@ -6,14 +6,14 @@ SocialLens extracts text from uploaded PDFs and images (with OCR fallback
 for scanned documents), analyzes the content as social-media copy, scores
 it across several dimensions, and generates an improved rewrite.
 
-> **Status:** Phase 7 of 10 complete — `/history` lists every uploaded
-> document (filename, score, status, date) with search and sortable
-> columns, joined from the real documents/analyses APIs. `/insights`
-> shows real aggregate stats (total analyses, average scores, a Recharts
-> score trend, and AI-weakness categories grouped by keyword) with honest
-> empty states when there isn't enough data — nothing here is fabricated.
-> That was the last of the 7 application phases; Phases 8-10 (testing,
-> Docker, and final docs) remain. See
+> **Status:** Phase 8 of 10 complete — a dedicated testing pass across
+> the whole app: 136 backend tests (pytest), 71 frontend unit/component
+> tests (Vitest + React Testing Library), and one real end-to-end
+> happy-path test (Playwright) driving the actual app through a real
+> browser. Found and fixed two real bugs along the way (dead/incorrect
+> error-state logic in the processing UI, unused dead code in the
+> document repository) rather than just reporting them. Phases 9-10
+> (Docker, final docs) remain. See
 > [docs/decisions.md](docs/decisions.md) for the engineering log.
 
 ## 1. Overview
@@ -82,10 +82,12 @@ explicitly — nothing is fabricated client-side.
 ## 4. Technology stack
 
 **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui,
-Lucide icons, Recharts, React Hook Form + Zod, TanStack Query.
+Lucide icons, Recharts, React Hook Form + Zod, TanStack Query. Testing:
+Vitest + React Testing Library (unit/component), Playwright (E2E).
 
 **Backend:** Python, FastAPI, Pydantic, SQLAlchemy, SQLite, Alembic,
 PyMuPDF, Pillow, OpenCV, Tesseract OCR (via pytesseract), Gemini API.
+Testing: pytest.
 
 ## 5. Processing pipeline
 
@@ -270,24 +272,55 @@ alembic upgrade head
 
 ## 14. Running tests
 
+**Backend (pytest, 136 tests):**
+
 ```bash
 cd backend
 pytest
 ```
 
-Covers file validation, the documents/analyses repositories and API
-endpoints, text normalization, the extraction pipeline's native-vs-OCR
-decision logic and failure handling, deterministic scoring (metrics
-computation and the hybrid blend formula), and the Gemini provider
-(request/response handling, JSON/schema validation, error translation).
-Everything runs against an isolated in-memory SQLite database with the
-OCR engine and LLM provider both mocked, so the suite passes without
-Tesseract installed and without a real `GEMINI_API_KEY` or network
-access. One additional test (`test_ocr_real_engine.py`) exercises the
-real Tesseract binary and is skipped automatically when it isn't found.
-Also covers the insights aggregation (averages, chronological score
-trend, weakness-category keyword matching, and the empty-data state).
-Frontend test setup lands alongside the components it covers (Phase 8).
+Covers file validation, PDF extraction and the native-vs-OCR decision
+logic, OCR preprocessing and provider error translation, deterministic
+scoring (metrics computation and the hybrid blend formula), the Gemini
+provider (request/response handling, JSON/schema validation), every API
+endpoint's happy and error paths, insights aggregation, and the global
+exception handler (confirms an unhandled error never leaks internals to
+the client). Runs against an isolated in-memory SQLite database with the
+OCR engine and LLM provider mocked, so it passes without Tesseract
+installed and without a real `GEMINI_API_KEY` or network access. One
+additional test (`test_ocr_real_engine.py`) exercises the real Tesseract
+binary and is skipped automatically when it isn't found — installed here,
+so it runs for real rather than skipping.
+
+**Frontend unit/component tests (Vitest + React Testing Library, 71 tests):**
+
+```bash
+cd frontend
+npm test          # one-shot run
+npm run test:watch
+```
+
+Covers client-side file validation, the API client's error handling
+(network failure, malformed error bodies, backend error codes), the
+Dropzone (file picker, drag-and-drop, validation feedback), processing
+stage transitions (including which phase failed on error), result
+rendering (`ResultsDashboard` with real fixture data, including the
+Recharts-based sections), error states, copy-to-clipboard (including the
+rejected-permission path), and History's search/sort logic.
+
+**End-to-end (Playwright, 1 test):**
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+The required happy-path test: upload → process → results, driven through
+the real app in a real browser (not jsdom). Backend responses are mocked
+at the network layer (`page.route()`) rather than running a real
+FastAPI + Gemini + Tesseract stack, so it's fast and deterministic —
+real backend behavior has its own, much larger test suite already.
+Auto-starts the dev server if one isn't already running.
 
 ## 15. Docker instructions
 
@@ -331,6 +364,11 @@ the backend, Vercel for the frontend).
   the *entire* documents/analyses tables unpaged — reasonable at
   assessment scale, would need real pagination/aggregation-in-SQL before
   scaling past a few thousand rows.
+- Test coverage isn't exhaustive — the goal (per this phase's own
+  instructions) was meaningful coverage of the highest-value paths, not
+  100%. The one E2E test covers the happy path only; error-state E2E
+  coverage is handled at the component-test level instead (see
+  `processing-stages.test.tsx`, `results-error.test.tsx`).
 
 ## 18. Future improvements
 

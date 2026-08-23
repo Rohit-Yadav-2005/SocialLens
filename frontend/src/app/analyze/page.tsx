@@ -16,7 +16,8 @@ export default function AnalyzePage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [platform, setPlatform] = useState<Platform>("generic");
-  const { stage, document, errorMessage, submit, isPending, reset } = useAnalyzeFlow();
+  const { stage, failedPhase, document, errorMessage, submit, isPending, reset } =
+    useAnalyzeFlow();
 
   const isProcessing = stage === "uploading" || stage === "analyzing";
 
@@ -60,7 +61,9 @@ export default function AnalyzePage() {
           </Alert>
         )}
 
-        {(isProcessing || stage === "complete") && <ProcessingStages stage={stage} />}
+        {(isProcessing || stage === "complete" || stage === "error") && (
+          <ProcessingStages stage={stage} failedPhase={failedPhase} />
+        )}
 
         <div className="flex flex-col gap-3 sm:flex-row">
           {stage === "error" ? (

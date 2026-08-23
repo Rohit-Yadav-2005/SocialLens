@@ -54,7 +54,3 @@ class DocumentRepository:
         self.db.commit()
         self.db.refresh(document)
         return document
-
-    def delete(self, document: Document) -> None:
-        self.db.delete(document)
-        self.db.commit()
