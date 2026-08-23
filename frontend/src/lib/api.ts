@@ -33,6 +33,14 @@ async function parseErrorBody(response: Response): Promise<ApiErrorBody> {
   return { error_code: "UNKNOWN_ERROR", message: "Something went wrong. Please try again." };
 }
 
+function buildPageParams(params?: { skip?: number; limit?: number }): string {
+  const query = new URLSearchParams();
+  if (params?.skip !== undefined) query.set("skip", String(params.skip));
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  const suffix = query.toString();
+  return suffix ? `?${suffix}` : "";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -70,45 +78,39 @@ export function analyzeDocument(
   platform: Platform = "generic",
 ): Promise<AnalysisResponse> {
   return request<AnalysisResponse>(
-    `/api/v1/documents/${documentId}/analyze?platform=${platform}`,
+    `/api/v1/documents/${encodeURIComponent(documentId)}/analyze?platform=${platform}`,
     { method: "POST" },
   );
 }
 
 export function getDocument(documentId: string): Promise<DocumentResponse> {
-  return request<DocumentResponse>(`/api/v1/documents/${documentId}`);
+  return request<DocumentResponse>(`/api/v1/documents/${encodeURIComponent(documentId)}`);
 }
 
 /** The most recent analysis for a document. Throws ApiError("NOT_FOUND")
  * if the document doesn't exist or hasn't been analyzed yet. */
 export function getDocumentAnalysis(documentId: string): Promise<AnalysisResponse> {
-  return request<AnalysisResponse>(`/api/v1/documents/${documentId}/analysis`);
+  return request<AnalysisResponse>(
+    `/api/v1/documents/${encodeURIComponent(documentId)}/analysis`,
+  );
 }
 
 export function listDocuments(params?: {
   skip?: number;
   limit?: number;
 }): Promise<DocumentSummary[]> {
-  const query = new URLSearchParams();
-  if (params?.skip !== undefined) query.set("skip", String(params.skip));
-  if (params?.limit !== undefined) query.set("limit", String(params.limit));
-  const suffix = query.toString() ? `?${query.toString()}` : "";
-  return request<DocumentSummary[]>(`/api/v1/documents${suffix}`);
+  return request<DocumentSummary[]>(`/api/v1/documents${buildPageParams(params)}`);
 }
 
 export function getAnalysis(analysisId: string): Promise<AnalysisResponse> {
-  return request<AnalysisResponse>(`/api/v1/analyses/${analysisId}`);
+  return request<AnalysisResponse>(`/api/v1/analyses/${encodeURIComponent(analysisId)}`);
 }
 
 export function listAnalyses(params?: {
   skip?: number;
   limit?: number;
 }): Promise<AnalysisSummary[]> {
-  const query = new URLSearchParams();
-  if (params?.skip !== undefined) query.set("skip", String(params.skip));
-  if (params?.limit !== undefined) query.set("limit", String(params.limit));
-  const suffix = query.toString() ? `?${query.toString()}` : "";
-  return request<AnalysisSummary[]>(`/api/v1/analyses${suffix}`);
+  return request<AnalysisSummary[]>(`/api/v1/analyses${buildPageParams(params)}`);
 }
 
 export function getInsights(): Promise<InsightsResponse> {

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { getDocument, getDocumentAnalysis } from "@/lib/api";
+import { ApiError, getDocument, getDocumentAnalysis } from "@/lib/api";
 
 export function documentQueryKey(documentId: string) {
   return ["document", documentId] as const;
@@ -27,10 +27,23 @@ export function useDocumentAnalysis(documentId: string) {
     enabled: documentQuery.isSuccess,
   });
 
+  // The document itself loaded fine, but it just hasn't been analyzed
+  // yet (or an earlier analysis failed) — a real, expected state to land
+  // in from History, distinct from an actual load error. Callers should
+  // offer to analyze it, not show a generic "couldn't load" message.
+  const analysisNotFound =
+    documentQuery.isSuccess &&
+    analysisQuery.isError &&
+    analysisQuery.error instanceof ApiError &&
+    analysisQuery.error.errorCode === "NOT_FOUND";
+
   return {
     document: documentQuery.data,
     analysis: analysisQuery.data,
     isLoading: documentQuery.isLoading || (documentQuery.isSuccess && analysisQuery.isLoading),
-    error: documentQuery.error ?? (documentQuery.isSuccess ? analysisQuery.error : null),
+    error: analysisNotFound
+      ? null
+      : (documentQuery.error ?? (documentQuery.isSuccess ? analysisQuery.error : null)),
+    analysisNotFound,
   };
 }

@@ -52,8 +52,9 @@ class Document(Base):
     # SQLite's CURRENT_TIMESTAMP is second-resolution, which makes
     # created_at-ordered lists (history, uploaded-close-together docs)
     # ambiguous. Same fix as Analysis.created_at — see docs/decisions.md.
+    # Indexed: every list endpoint orders by this column.
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

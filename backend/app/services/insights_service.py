@@ -62,8 +62,7 @@ class InsightsService:
         trend_limit: int = _DEFAULT_TREND_LIMIT,
         top_weaknesses: int = _DEFAULT_TOP_WEAKNESSES,
     ) -> InsightsSummary:
-        analyses = self.repo.list_all()
-        total = len(analyses)
+        total, average_overall, average_hook, average_cta = self.repo.aggregate_stats()
 
         if total == 0:
             return InsightsSummary(
@@ -75,17 +74,20 @@ class InsightsService:
                 common_weaknesses=[],
             )
 
-        average_overall = sum(a.overall_score for a in analyses) / total
-        average_hook = sum(a.hook_score for a in analyses) / total
-        average_cta = sum(a.cta_score for a in analyses) / total
+        # Trend and weakness categorization both need per-analysis data
+        # that a SQL aggregate can't produce — but only these three
+        # columns, not every column of every row (see the repository).
+        rows = self.repo.list_trend_and_weaknesses()
 
-        # repo.list_all() is already ordered oldest-first; keep only the
-        # most recent `trend_limit` points for the chart.
-        trend = [(a.created_at, a.overall_score) for a in analyses][-trend_limit:]
+        # Rows are already oldest-first; keep only the most recent
+        # `trend_limit` points for the chart.
+        trend = [(created_at, overall_score) for created_at, overall_score, _ in rows][
+            -trend_limit:
+        ]
 
         weakness_counts: dict[str, int] = {}
-        for analysis in analyses:
-            for weakness in analysis.weaknesses:
+        for _created_at, _overall_score, weaknesses in rows:
+            for weakness in weaknesses:
                 for category in categorize_weakness(weakness):
                     weakness_counts[category] = weakness_counts.get(category, 0) + 1
         common_weaknesses = sorted(weakness_counts.items(), key=lambda kv: kv[1], reverse=True)[

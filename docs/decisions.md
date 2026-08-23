@@ -2,6 +2,168 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Code review pass: Low findings fixed
+
+The 8 Low findings left over from the High/Medium pass (below), fixed as
+a follow-up:
+
+- **Unused dependencies.** `react-hook-form` and `@hookform/resolvers`
+  were never imported anywhere — `npm uninstall`'d rather than just
+  deleted from `package.json`, so `package-lock.json` stays consistent.
+- **Dead generated UI components.** `tabs.tsx`, `progress.tsx`,
+  `separator.tsx`, `label.tsx`, `dropdown-menu.tsx` — standard
+  shadcn-scaffolding leftovers, unimported anywhere. Deleted; `tsc
+  --noEmit` confirmed nothing referenced them.
+- **Duplicated pagination-param building.** `listDocuments`/
+  `listAnalyses` in `lib/api.ts` each rebuilt the same skip/limit
+  `URLSearchParams` logic. Extracted `buildPageParams()`.
+- **Unencoded path segments.** `documentId`/`analysisId` were
+  interpolated directly into fetch URLs. Wrapped in
+  `encodeURIComponent()` — harmless today since IDs are server-generated
+  UUIDs, but no longer depends on that staying true.
+- **Missing indexes on `created_at`.** Both `documents.created_at` and
+  `analyses.created_at` are ordered on by every list endpoint (and now
+  also by the insights aggregate/trend queries) but weren't indexed.
+  Added `index=True` to both columns and generated a real Alembic
+  migration (`45d04701d86c`) rather than hand-writing DDL — applied to
+  the dev database and confirmed via `sqlite_master`.
+- **Hardcoded card corner-radius in three places.** `Card`, `CardHeader`,
+  and `CardFooter` each hardcoded `rounded-2xl`/`rounded-t-2xl`/
+  `rounded-b-2xl` independently (introduced in the Prism redesign, below).
+  Now one `--card-radius` custom property set on `Card` and inherited by
+  its sub-slots, the same pattern already used for `--card-spacing` in
+  this file. Confirmed the computed `border-radius` is byte-identical
+  (21.6px) before and after.
+- **`AnalysisService.analyze_document`'s bare `except Exception`.**
+  Treated an expected AI-provider failure and a genuine programming bug
+  (e.g. a regression in `blend_scores`) identically, with nothing logged
+  at the point of catch. Split into `except AppError` (a `logger.warning`
+  — this is an expected, already-categorized failure) and `except
+  Exception` (a `logger.exception` — this is not), so the two are
+  distinguishable in logs. Behavior (revert status, re-raise) is
+  unchanged in both branches.
+- **Inconsistent endpoint docstrings.** Only `get_document_analysis` had
+  one; the rest of `/docs`' Swagger UI had no description. Added a
+  docstring to every route handler — confirmed live via `/openapi.json`
+  that every path now has a real, non-empty `description`.
+
+All 141 backend tests (ruff/black clean) and all 85 frontend tests
+(ESLint/`tsc --noEmit` clean) still pass.
+
+## Code review pass: High/Medium findings fixed
+
+A senior-engineer-style review of the whole codebase surfaced 18 ranked
+findings across security, architecture, error handling, a11y, and test
+coverage (Critical/High/Medium/Low). None were Critical — no auth bypass,
+no data loss, no secret leakage. The 3 High and 7 Medium findings were
+fixed; the 8 Low findings (unused deps, dead UI components, minor
+duplication) were left as a follow-up list rather than expanding scope.
+One finding from the initial pass (a suspected prompt-template crash on a
+bare `$` in extracted text) turned out to be a false alarm on empirical
+verification — `string.Template.substitute()` only re-scans the template
+string for placeholders, never the values being substituted in, so a `$`
+inside uploaded content is inert. Worth remembering as a pattern: verify
+a suspected bug by running it, not by reasoning about stdlib internals
+from memory.
+
+**Fixed:**
+
+- **No rate limit on cost-incurring endpoints.** `POST /documents` and
+  `POST /documents/{id}/analyze` (the one that spends real Gemini quota)
+  were open to unlimited calls from anyone who could reach the backend.
+  Added `app/core/rate_limit.py` — an in-memory, per-IP fixed-window
+  counter, no new dependency (consistent with "no infrastructure beyond
+  what's needed" — see "Modular monolith, no task queue" below). 20
+  req/5min on upload, 10 req/5min on analyze (stricter since it's the
+  paid one). Disabled via `app.dependency_overrides` in the `client`
+  fixture so the functional test suite's repeated calls never trip it;
+  the limiter has its own dedicated tests (`test_rate_limit.py`) against
+  a fresh instance instead. Not a substitute for real auth — a basic
+  abuse guard for a single-instance deployment, documented as such.
+- **Uploads weren't size-capped before being received.** `await
+  file.read()` buffered the whole body before `validate_upload()` ever
+  checked the 20MB limit. Now checks `Content-Length` first (rejects
+  before reading anything, for well-behaved clients) and reads
+  `max_size + 1` bytes as a backstop for clients that omit it — an
+  oversized file is never fully buffered.
+- **History links to unanalyzed/failed documents dead-ended on a generic
+  "not found" error.** Every History row links to `/analyze/{id}`
+  regardless of status, and a document that was never analyzed 404s on
+  `GET .../analysis` — a completely normal path (upload, get distracted,
+  check History later, click the row). `useDocumentAnalysis` now
+  distinguishes "analysis genuinely doesn't exist yet" (`NOT_FOUND` on
+  the analysis fetch specifically, document loaded fine) from a real
+  error, and the results page renders a new `NotAnalyzedYet` state with
+  an inline "Analyze this document" button — verified end-to-end against
+  the real Gemini API, not mocked, including the actual in-place
+  transition from that state to the full results dashboard.
+- **Two incompatible error-response shapes.** Hand-raised `AppError`s
+  return `{error_code, message}`; FastAPI's own validation errors
+  returned `{"detail": [...]}` — confirmed live (`platform=nonsense` on
+  `/analyze` returned the FastAPI shape), and the frontend's
+  `parseErrorBody()` only understood the former, so a validation failure
+  surfaced as generic "Something went wrong" despite FastAPI already
+  having a specific message. Added `RequestValidationError` and
+  `StarletteHTTPException` handlers in `main.py` that reshape both into
+  the app's one envelope (`VALIDATION_ERROR` / `HTTP_ERROR`), verified
+  live against `/analyze?platform=nonsense`, `/analyses?limit=99999`, and
+  an unmatched route.
+- **Insights aggregation loaded every analysis row into Python.**
+  `AnalysisRepository.list_all()` + `sum(...)/total` in Python, previously
+  justified as "fine at this scale." Replaced with
+  `aggregate_stats()` (one SQL query, `COUNT`/`AVG`) for the three
+  averages, and `list_trend_and_weaknesses()` (three columns, not every
+  column of every row) for the trend chart and weakness categorization —
+  the two things that genuinely need per-row data. `list_all()` is gone;
+  nothing else used it.
+- **Prompt injection surface.** Extracted document text is interpolated
+  directly into the Gemini prompt, delimited only by triple-quotes. Added
+  an explicit rule telling the model to treat anything inside the
+  delimited block as content to evaluate, never as instructions to obey,
+  plus a reminder line immediately after the block (belt-and-suspenders
+  placement, not just one mention up top). Numeric scores were always
+  schema-constrained via Pydantic regardless; this closes the softer gap
+  where the AI's free-text fields (tone/strengths/weaknesses/
+  improved_content) had no explicit defense at all.
+- **`PlatformSelect` didn't implement radiogroup keyboard semantics.**
+  `role="radiogroup"`/`role="radio"` were correct for screen-reader
+  labeling, but every option was individually tabbable — WAI-ARIA
+  authoring practices expect one tab stop with arrow-key navigation
+  (roving tabindex). Implemented roving tabindex + Arrow/Home/End
+  handling, with a new test file covering both the ARIA attributes and
+  the keyboard behavior.
+- **CORS wider than the API needs.** `allow_methods=["*"]`,
+  `allow_headers=["*"]` alongside `allow_credentials=True`. Narrowed to
+  `["GET", "POST"]` and `["Content-Type"]` — everything the app actually
+  sends.
+- **Duplicated empty-state markup.** History and Insights each hand-rolled
+  a near-identical icon-square + heading + description + CTA block for
+  their zero-data state, while `ComingSoon` already existed for their
+  *error* state with an older, undesigned look — the redesign had been
+  applied inconsistently. Replaced both with one `EmptyState` component
+  (`components/layout/empty-state.tsx`, `ComingSoon` deleted), used for
+  History/Insights empty and error states, `ResultsError`, and the new
+  `NotAnalyzedYet` state. Renders `<h2>`, not `<h1>` — every page that
+  uses it already has its own page-level `<h1>` above it; the old
+  `ComingSoon` rendering `<h1>` inside a page that already had one was a
+  real duplicate-heading bug this incidentally fixed.
+- **Zero test coverage for any custom hook.** Added
+  `use-analyze-flow.test.tsx` (the `failedPhase` tracking logic —
+  the bug fix called out below under "Two real bugs found") and
+  `use-history.test.tsx` (the client-side document/analysis join,
+  including the re-analyze/first-seen-wins edge case), both using
+  `renderHook` + a real `QueryClientProvider` with `@/lib/api` mocked at
+  the module boundary.
+
+Left as a follow-up (Low severity, not expanded into this pass): unused
+`react-hook-form`/`@hookform/resolvers` dependencies, unused generated
+shadcn primitives (`tabs`, `progress`, `separator`, `label`,
+`dropdown-menu`), duplicated pagination-param building in `lib/api.ts`,
+missing indexes on `created_at` columns, hardcoded card corner-radius in
+three places, unencoded path segments in `lib/api.ts` fetch URLs, the
+bare `except Exception` in `AnalysisService.analyze_document`, and
+inconsistent endpoint docstrings.
+
 ## Visual identity: "Prism", derived from the product name
 
 The UI was a stock shadcn install — `oklch(1 0 0)` white, the default

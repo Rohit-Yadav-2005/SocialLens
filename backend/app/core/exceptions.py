@@ -66,3 +66,8 @@ class DatabaseError(AppError):
 class NotFoundError(AppError):
     error_code = "NOT_FOUND"
     status_code = status.HTTP_404_NOT_FOUND
+
+
+class RateLimitExceededError(AppError):
+    error_code = "RATE_LIMIT_EXCEEDED"
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS

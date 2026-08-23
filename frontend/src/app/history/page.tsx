@@ -4,7 +4,7 @@ import Link from "next/link";
 import { History } from "lucide-react";
 
 import { HistoryTable } from "@/components/history/history-table";
-import { ComingSoon } from "@/components/layout/coming-soon";
+import { EmptyState } from "@/components/layout/empty-state";
 import { ResultsSkeleton } from "@/components/analysis/results-skeleton";
 import { Button } from "@/components/ui/button";
 import { useHistory } from "@/hooks/use-history";
@@ -29,7 +29,8 @@ export default function HistoryPage() {
         {isLoading && <ResultsSkeleton />}
 
         {!isLoading && error && (
-          <ComingSoon
+          <EmptyState
+            role="alert"
             icon={History}
             title="Couldn't load history"
             description={getErrorMessage(error)}
@@ -37,30 +38,16 @@ export default function HistoryPage() {
         )}
 
         {!isLoading && !error && rows.length === 0 && (
-          <div className="relative flex flex-col items-center gap-5 py-24 text-center">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute top-16 left-1/2 size-64 -translate-x-1/2 rounded-full opacity-50 blur-[90px]"
-              style={{ background: "var(--glow-primary)" }}
-            />
-            <span className="bg-spectral relative flex size-14 items-center justify-center rounded-2xl shadow-[0_1px_0_oklch(1_0_0/0.3)_inset,0_10px_30px_-10px_var(--glow-primary)]">
-              <History className="size-6 text-white" aria-hidden="true" />
-            </span>
-            <div className="relative">
-              <h2 className="font-display text-2xl font-semibold">No analyses yet</h2>
-              <p className="mt-2 text-muted-foreground">
-                Upload a PDF or image to see it show up here.
-              </p>
-            </div>
-            <Button
-              size="lg"
-              className="relative h-11 px-6"
-              nativeButton={false}
-              render={<Link href="/analyze" />}
-            >
-              Analyze content
-            </Button>
-          </div>
+          <EmptyState
+            icon={History}
+            title="No analyses yet"
+            description="Upload a PDF or image to see it show up here."
+            action={
+              <Button size="lg" className="h-11 px-6" nativeButton={false} render={<Link href="/analyze" />}>
+                Analyze content
+              </Button>
+            }
+          />
         )}
 
         {!isLoading && !error && rows.length > 0 && <HistoryTable rows={rows} />}

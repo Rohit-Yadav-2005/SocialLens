@@ -11,7 +11,8 @@ from dataclasses import asdict
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.exceptions import NoTextFoundError, NotFoundError
+from app.core.exceptions import AppError, NoTextFoundError, NotFoundError
+from app.core.logging import get_logger
 from app.models.analysis import Analysis
 from app.models.document import Document, DocumentStatus
 from app.providers.llm.base import LLMProvider, Platform
@@ -19,6 +20,8 @@ from app.providers.llm.gemini import GeminiProvider
 from app.repositories.analysis_repository import AnalysisRepository
 from app.repositories.document_repository import DocumentRepository
 from app.services.scoring_service import blend_scores, compute_metrics
+
+logger = get_logger(__name__)
 
 
 class AnalysisService:
@@ -74,9 +77,25 @@ class AnalysisService:
                 improved_content=ai_result.improved_content,
                 metrics=asdict(metrics),
             )
+        except AppError as exc:
+            # An expected failure mode (missing/invalid AI response,
+            # provider error) — the caller already turns this into a
+            # specific error code, so this is a warning, not a bug report.
+            # Extraction already succeeded — revert to `processed` rather
+            # than discarding it, so the caller can retry.
+            logger.warning(
+                "analysis_failed",
+                extra={"document_id": document.id, "error_code": exc.error_code},
+            )
+            self.document_repo.update_status(document, status=DocumentStatus.PROCESSED)
+            raise
         except Exception:
-            # Extraction already succeeded — an analysis failure shouldn't
-            # discard that. Revert to `processed` so the caller can retry.
+            # Anything else here is a genuine defect (e.g. a regression in
+            # compute_metrics/blend_scores), not an expected AI-provider
+            # failure — logged distinctly from the branch above rather
+            # than relying solely on the global handler downstream to
+            # tell the two apart.
+            logger.exception("analysis_failed_unexpectedly", extra={"document_id": document.id})
             self.document_repo.update_status(document, status=DocumentStatus.PROCESSED)
             raise
 

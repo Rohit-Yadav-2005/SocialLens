@@ -10,6 +10,10 @@ router = APIRouter(prefix="/insights", tags=["insights"])
 
 @router.get("", response_model=InsightsResponse)
 def get_insights(db: Session = Depends(get_db)) -> InsightsResponse:
+    """Aggregate stats across every analysis: total count, average overall/
+    hook/CTA scores (`null` when there's no data, never a fabricated `0`),
+    a chronological score trend, and weakness categories (keyword-matched
+    from the AI's free-form weakness text) ranked by frequency."""
     summary = InsightsService(db).get_summary()
     return InsightsResponse(
         total_analyses=summary.total_analyses,

@@ -1,6 +1,8 @@
 """Data-access layer for Analysis rows. No business logic here."""
 
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.analysis import Analysis
@@ -24,11 +26,26 @@ class AnalysisRepository:
         stmt = select(Analysis).order_by(Analysis.created_at.desc()).offset(skip).limit(limit)
         return list(self.db.execute(stmt).scalars().all())
 
-    def list_all(self) -> list[Analysis]:
-        """Unpaged read for aggregate stats (insights). Fine at this data
-        scale — see docs/decisions.md."""
-        stmt = select(Analysis).order_by(Analysis.created_at.asc())
-        return list(self.db.execute(stmt).scalars().all())
+    def aggregate_stats(self) -> tuple[int, float | None, float | None, float | None]:
+        """(count, avg_overall, avg_hook, avg_cta) computed in SQL — for
+        insights' averages, which never need a full row materialized.
+        See docs/decisions.md."""
+        stmt = select(
+            func.count(Analysis.id),
+            func.avg(Analysis.overall_score),
+            func.avg(Analysis.hook_score),
+            func.avg(Analysis.cta_score),
+        )
+        return self.db.execute(stmt).one()
+
+    def list_trend_and_weaknesses(self) -> list[tuple[datetime, int, list[str]]]:
+        """Oldest-first (created_at, overall_score, weaknesses) — only the
+        columns insights' score trend and weakness categorization
+        actually need, not every column of every analysis row."""
+        stmt = select(Analysis.created_at, Analysis.overall_score, Analysis.weaknesses).order_by(
+            Analysis.created_at.asc()
+        )
+        return list(self.db.execute(stmt).all())
 
     def get_by_document_id(self, document_id: str) -> Analysis | None:
         """Returns the most recent analysis for a document (a document can

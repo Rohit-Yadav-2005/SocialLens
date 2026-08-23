@@ -14,6 +14,7 @@ def list_analyses(
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
 ) -> list[AnalysisSummary]:
+    """List analyses, newest first."""
     service = AnalysisService(db)
     analyses = service.list(skip=skip, limit=limit)
     return [AnalysisSummary.model_validate(a) for a in analyses]
@@ -21,6 +22,7 @@ def list_analyses(
 
 @router.get("/{analysis_id}", response_model=AnalysisResponse)
 def get_analysis(analysis_id: str, db: Session = Depends(get_db)) -> AnalysisResponse:
+    """Fetch one analysis by its own id."""
     service = AnalysisService(db)
     analysis = service.get(analysis_id)
     return AnalysisResponse.model_validate(analysis)

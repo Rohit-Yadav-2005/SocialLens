@@ -46,7 +46,8 @@ class Analysis(Base):
     # Client-side (not server_default) so this has microsecond precision —
     # SQLite's CURRENT_TIMESTAMP is second-resolution, which would make
     # "most recent analysis for this document" ambiguous on a re-analyze
-    # within the same second.
+    # within the same second. Indexed: every list endpoint and the
+    # insights trend/aggregate queries order or filter by this column.
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
     )

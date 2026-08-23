@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings
 from app.core.database import Base, get_db
+from app.core.rate_limit import analyze_rate_limiter, upload_rate_limiter
 from app.main import app
 from app.providers.llm.base import AiAnalysisResult, Platform
 from app.providers.ocr.base import OcrResult
@@ -101,7 +102,13 @@ def client(db_session_factory, tmp_path, monkeypatch, mock_ocr, mock_llm):
         finally:
             db.close()
 
+    # Rate limiting is an abuse guard, not app behavior under test here —
+    # disable it so the functional test suite's repeated calls to the
+    # same endpoints from the same client IP never trip it. The limiter
+    # itself has its own dedicated tests (test_rate_limit.py).
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[upload_rate_limiter] = lambda: None
+    app.dependency_overrides[analyze_rate_limiter] = lambda: None
     yield TestClient(app)
     app.dependency_overrides.clear()
 
