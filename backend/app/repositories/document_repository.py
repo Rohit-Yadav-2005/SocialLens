@@ -1,5 +1,10 @@
 """Data-access layer for Document rows. No business logic here."""
 
+# See the identical comment in analysis_repository.py: this class also has
+# a `list` method, so annotations are made lazy to avoid the same
+# builtin-shadowing hazard for any future method added after it.
+from __future__ import annotations
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 

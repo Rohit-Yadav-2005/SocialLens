@@ -2,6 +2,51 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Real deploy failure: a builtin-shadowing bug only Python <3.14 hits
+
+The first actual Render deploy crashed at container startup —
+`TypeError: 'function' object is not subscriptable` — inside
+`AnalysisRepository`, evaluating `list_trend_and_weaknesses`'s own return
+annotation `list[tuple[datetime, int, list[str]]]`. Root cause:
+`AnalysisRepository.list()` (an earlier method in the same class) binds
+the name `list` in the class body's namespace; Python evaluates function
+annotations eagerly by default, in whatever scope is active when the
+`def` statement executes — which, for a method defined later in the same
+class body, is that same namespace. So `list[...]` in the later method's
+annotation doesn't resolve to the builtin, it resolves to the `list`
+*method* sitting right above it, and subscripting a function object
+fails.
+
+This reproduced live on Render (`python:3.12-slim`, per the Dockerfile)
+but never once locally, across 141 passing test runs, on the dev
+machine's Python 3.14 — confirmed by a fresh `python -c "from
+app.repositories.analysis_repository import AnalysisRepository"` import
+with all `__pycache__` cleared, no caching involved. The reason: PEP 649
+(Python 3.14) made annotation evaluation lazy by default, so the
+subscript expression is never actually evaluated at class-definition
+time on 3.14 — only on 3.12 and earlier, which is what every real
+deployment target (and this project's own Dockerfile, deliberately
+pinned to 3.12 for wider availability — see the Docker/deployment entry
+below) actually runs. This is exactly the kind of bug "verified by
+careful static review, not an actual `docker build`" (README section 15,
+same entry below) was flagged as unable to catch — and didn't.
+
+Fixed with `from __future__ import annotations` (PEP 563 — stable since
+Python 3.7, not just a 3.14 thing) in every file with the same hazard
+shape: a method named after a builtin (`list`) followed by any method
+whose own annotation references that builtin generically. Grepped for
+`def list(`/`def dict(`/etc. across `backend/app` and found four:
+`AnalysisRepository`, `DocumentRepository`, `AnalysisService`,
+`DocumentService`. Only `AnalysisRepository` was actually crashing today
+— the other three have the identical shadowing shape but no method after
+`list()` currently uses a bare `list[...]` annotation, so they were
+latent, not live. Fixed all four rather than just the one that happened
+to crash first, since the other three are one future method addition
+away from the exact same failure. All 141 backend tests, ruff, and black
+still pass — that was never in doubt, since 3.14 doesn't hit this at all;
+the actual fix is only provable by a real deploy on <3.14, which is
+next.
+
 ## Docker/deployment (Phase 9), rebuilt after the code-review pass
 
 This work was done once already, then deliberately reverted at the

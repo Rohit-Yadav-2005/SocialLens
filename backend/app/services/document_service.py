@@ -4,6 +4,10 @@ outcome in the DB. The original file is deleted once processing finishes,
 success or failure — see docs/decisions.md.
 """
 
+# This class also has a `list` method — see the comment in
+# analysis_repository.py for why annotations need to be lazy here too.
+from __future__ import annotations
+
 from pathlib import Path
 
 from sqlalchemy.orm import Session

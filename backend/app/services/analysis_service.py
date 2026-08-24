@@ -6,6 +6,10 @@ actually called), so read-only operations (`get`, `list`) never require
 GEMINI_API_KEY to be set — see docs/decisions.md.
 """
 
+# This class also has a `list` method — see the comment in
+# analysis_repository.py for why annotations need to be lazy here too.
+from __future__ import annotations
+
 from dataclasses import asdict
 
 from sqlalchemy.orm import Session

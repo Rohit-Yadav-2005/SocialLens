@@ -1,5 +1,14 @@
 """Data-access layer for Analysis rows. No business logic here."""
 
+# Methods below are named after builtins (`list`). Without this, a later
+# method's own annotation referencing `list[...]` resolves `list` to the
+# `list` method itself instead of the builtin — Python evaluates
+# annotations eagerly, in the class body's own namespace, by default. This
+# genuinely doesn't crash on Python 3.14 (PEP 649 made annotations lazy by
+# default there) but does on every earlier version, including the 3.12 an
+# actual deployment runs — confirmed the hard way. See docs/decisions.md.
+from __future__ import annotations
+
 from datetime import datetime
 
 from sqlalchemy import func, select
