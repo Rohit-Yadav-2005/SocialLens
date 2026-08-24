@@ -99,11 +99,43 @@ describe("uploadDocument", () => {
 
     await uploadDocument(file);
 
-    const [url, init] = fetchMock.mock.calls[0];
+    // The upload is preceded by a health pre-flight, so find it by method
+    // rather than assuming it is the first call.
+    const uploadCall = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
+    const [url, init] = uploadCall!;
     expect(url).toContain("/api/v1/documents");
-    expect(init.method).toBe("POST");
     expect(init.body).toBeInstanceOf(FormData);
     expect(init.body.get("file")).toBe(file);
+  });
+
+  it("waits for the backend on an idempotent health check before uploading", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "doc-1" }),
+    });
+
+    await uploadDocument(new File(["content"], "post.pdf", { type: "application/pdf" }));
+
+    // A cold or mid-deploy backend must be absorbed by a GET that is safe to
+    // repeat — never by retrying the upload, which could duplicate a document.
+    const [firstUrl, firstInit] = fetchMock.mock.calls[0];
+    expect(firstUrl).toContain("/api/v1/health");
+    expect(firstInit?.method ?? "GET").toBe("GET");
+  });
+
+  it("still attempts the upload when the backend never becomes reachable", async () => {
+    // The warm-up must not invent its own error — the real request should run
+    // and surface the actual failure.
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      uploadDocument(new File(["content"], "post.pdf", { type: "application/pdf" })),
+    ).rejects.toMatchObject({ errorCode: "NETWORK_ERROR" });
+
+    // 3 health attempts, then the upload itself.
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
 

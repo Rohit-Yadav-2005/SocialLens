@@ -15,7 +15,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_AI_RESPONSE: "The AI returned an unexpected response. Try again.",
   DATABASE_ERROR: "A server error occurred. Try again shortly.",
   NOT_FOUND: "We couldn't find what you were looking for.",
-  NETWORK_ERROR: "Couldn't reach the server. Check that the backend is running.",
+  NETWORK_ERROR:
+    "Couldn't reach the analysis server. It may be waking up from idle — wait a moment and try again.",
   UNKNOWN_ERROR: "Something went wrong. Please try again.",
 };
 

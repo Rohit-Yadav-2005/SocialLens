@@ -41,6 +41,35 @@ function buildPageParams(params?: { skip?: number; limit?: number }): string {
   return suffix ? `?${suffix}` : "";
 }
 
+/** Wait for the backend to be reachable before sending a request we can't
+ * safely retry.
+ *
+ * The deployed API runs on a tier that spins down when idle and swaps
+ * containers on deploy, so the first request after a quiet period either
+ * hangs for ~30s while the instance boots or fails outright mid-swap. That
+ * surfaced to users as "couldn't reach the server" on the upload POST —
+ * a request we must not blindly retry, since a retry could duplicate a
+ * document the server had in fact already accepted.
+ *
+ * Absorbing the wait on an idempotent GET instead is safe to repeat and
+ * costs one fast round-trip when the server is already warm. If it never
+ * comes up we return anyway and let the real request produce the error,
+ * so the user sees the actual failure rather than one invented here.
+ */
+async function waitForBackend(attempts = 3, delayMs = 2000): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/health`);
+      if (response.ok) return;
+    } catch {
+      // Not reachable yet — fall through to the backoff below.
+    }
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -48,7 +77,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ApiError(
       "NETWORK_ERROR",
-      "Couldn't reach the server. Check that the backend is running and try again.",
+      "Couldn't reach the analysis server. It may be waking up from idle — wait a moment and try again.",
       0,
     );
   }
@@ -64,7 +93,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function uploadDocument(file: File): Promise<DocumentResponse> {
+export async function uploadDocument(file: File): Promise<DocumentResponse> {
+  // First request of the flow, and the one that must not be auto-retried.
+  await waitForBackend();
+
   const formData = new FormData();
   formData.append("file", file);
   return request<DocumentResponse>("/api/v1/documents", {
