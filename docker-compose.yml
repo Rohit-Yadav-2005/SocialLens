@@ -1,0 +1,28 @@
+# Backend only — the frontend's dev server (`npm run dev`) already gives
+# fast refresh and a better local DX than containerizing it would, and the
+# whole point of Docker here is sidestepping Tesseract's fiddly native
+# install (see docs/decisions.md). Run this alongside `cd frontend && npm
+# run dev`, not instead of it.
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides the .env value so the SQLite file lands on the named
+      # volume below instead of the container's writable layer, which is
+      # discarded on `docker compose down`.
+      - DATABASE_URL=sqlite:////app/data/socialens.db
+    volumes:
+      - backend_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  backend_data:

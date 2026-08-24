@@ -2,6 +2,76 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Docker/deployment (Phase 9), rebuilt after the code-review pass
+
+This work was done once already, then deliberately reverted at the
+user's request before the code-review pass (below) — the artifacts here
+are a fresh rebuild against the post-review codebase, not a restore of
+the old ones, since e.g. the rate limiter and the two new exception
+handlers didn't exist yet the first time.
+
+**Rate limiter vs. reverse proxy — the one thing worth catching before
+deploying.** `app/core/rate_limit.py`'s `RateLimiter` keys on
+`request.client.host`, which is the raw ASGI transport peer address.
+Render/Railway/Fly all place a reverse proxy in front of every container
+— there is no path from the public internet directly to the app — so
+without telling uvicorn to trust that proxy's `X-Forwarded-For`, every
+request's `client.host` would resolve to the proxy's own address, and
+the per-IP limiter added in the code-review pass would silently become
+one shared limit across every real user instead of an individual one.
+Fixed by starting uvicorn with `--proxy-headers
+--forwarded-allow-ips='*'` in the Dockerfile's `CMD`. Trusting `*` is
+specifically safe here — and would be specifically unsafe (a spoofing
+vector) for a server reachable directly from the internet — because in
+this deployment shape that direct path never exists; the container's
+only inbound connection is the one from the platform's own ingress.
+
+**Python 3.12 in the image, not 3.14.** The dev environment used 3.14
+(see "Python 3.14 for the backend" below), but 3.12 is a more
+conservative, more widely-available target for something that has to
+build reliably on a deploy platform's infrastructure, and nothing in the
+codebase requires 3.14-only syntax — already noted as expected-to-work
+when that decision was first made.
+
+**`alembic upgrade head` runs on every container start,** not as a
+separate manual step — standard for a deployed single-instance service,
+and means a fresh deploy (or the 3 existing migrations plus the new
+`created_at` index migration from the review pass) is always applied
+without an extra deploy-time script.
+
+**SQLite on a named volume for Compose, ephemeral for a bare
+`docker run`.** Local Compose use mounts a named volume at `/app/data`
+and overrides `DATABASE_URL` to point there, so the database survives
+`docker compose down`. A bare `docker run` (no Compose) has no volume —
+the SQLite file lives in the container's writable layer and is lost with
+the container, which is documented as expected rather than treated as a
+bug to fix. The same tradeoff applies to Render's free tier in
+production: the disk is ephemeral there too, and adding a persistent
+disk (or moving to Postgres, already just a `DATABASE_URL` change per
+"SQLite now, Postgres-compatible later" below) is a deliberate upgrade a
+reader can make, not something "no unnecessary infrastructure" called
+for by default.
+
+**Verification: still couldn't run Docker itself.** Same constraint as
+the first attempt — no Docker Desktop / `docker` binary in this sandbox,
+confirmed again via both Bash and PowerShell. Didn't retry the WSL2
+fallback this time; it already failed on process-spawning the first time
+(the same sandbox restriction Vitest and Playwright hit in Phase 8 — see
+"Both Vitest and Playwright needed non-default process/pool settings"
+below), and re-attempting an approach with a known root cause would just
+burn time to confirm the same failure. Verified instead by careful static
+review against the real app: `app/core/config.py` for every setting the
+container needs, the actual `/api/v1/health` route for both
+`HEALTHCHECK` targets, `requirements.txt` (not `requirements-dev.txt`)
+for what the image installs, and — new this time — actually tracing
+through how the reverse-proxy-vs-rate-limiter interaction would behave
+in production rather than assuming it would just work. That last part is
+exactly the kind of bug static review is good at catching and a
+same-machine `docker compose up` wouldn't have caught either, since
+there's no reverse proxy in front of a local container. Whoever runs
+this next with real Docker available should still treat `docker compose
+up --build` as the actual first verification, not this review.
+
 ## Code review pass: Low findings fixed
 
 The 8 Low findings left over from the High/Medium pass (below), fixed as

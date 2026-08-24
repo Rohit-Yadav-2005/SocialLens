@@ -6,15 +6,22 @@ SocialLens extracts text from uploaded PDFs and images (with OCR fallback
 for scanned documents), analyzes the content as social-media copy, scores
 it across several dimensions, and generates an improved rewrite.
 
-> **Status:** Phase 8 of 10 complete — a dedicated testing pass across
-> the whole app: 136 backend tests (pytest), 71 frontend unit/component
-> tests (Vitest + React Testing Library), and one real end-to-end
-> happy-path test (Playwright) driving the actual app through a real
-> browser. Found and fixed two real bugs along the way (dead/incorrect
-> error-state logic in the processing UI, unused dead code in the
-> document repository) rather than just reporting them. Phases 9-10
-> (Docker, final docs) remain. See
-> [docs/decisions.md](docs/decisions.md) for the engineering log.
+> **Status:** Phase 9 of 10 complete — the backend is containerized
+> (`backend/Dockerfile`, Tesseract installed via `apt`, non-root user,
+> `alembic upgrade head` on start, health check), `docker-compose.yml`
+> gives a one-command local run with a persistent volume for the SQLite
+> file, and README sections 15-16 cover both local Docker use and a
+> free-tier deployment path (Render for the backend, Vercel for the
+> frontend). Since Phase 8: a full visual redesign (see "Prism" in
+> [docs/decisions.md](docs/decisions.md)) and a code-review pass that
+> fixed 18 ranked findings — rate limiting, a unified error envelope, a
+> real SQL aggregate for insights, an anti-prompt-injection prompt rule,
+> and more — bringing the suite to 141 backend tests and 85 frontend
+> tests. One honest gap: Docker itself isn't available in the sandbox
+> this was built in, so the Dockerfile/Compose setup was verified by
+> careful static review against the real app config rather than an
+> actual `docker build` — see docs/decisions.md and README section 15
+> for the full note. Phase 10 (final docs) remains.
 
 ## 1. Overview
 
@@ -272,7 +279,7 @@ alembic upgrade head
 
 ## 14. Running tests
 
-**Backend (pytest, 136 tests):**
+**Backend (pytest, 141 tests):**
 
 ```bash
 cd backend
@@ -292,7 +299,7 @@ additional test (`test_ocr_real_engine.py`) exercises the real Tesseract
 binary and is skipped automatically when it isn't found — installed here,
 so it runs for real rather than skipping.
 
-**Frontend unit/component tests (Vitest + React Testing Library, 71 tests):**
+**Frontend unit/component tests (Vitest + React Testing Library, 85 tests):**
 
 ```bash
 cd frontend
@@ -324,12 +331,120 @@ Auto-starts the dev server if one isn't already running.
 
 ## 15. Docker instructions
 
-_Added in Phase 9._
+The backend is containerized (`backend/Dockerfile` — Debian slim +
+Tesseract installed via `apt`, so there's nothing to install natively).
+The frontend isn't — `npm run dev` already gives faster iteration than
+containerizing a dev server would, and Vercel builds Next.js from source
+directly with no Dockerfile needed (section 16).
+
+```bash
+cp backend/.env.example backend/.env    # fill in GEMINI_API_KEY
+docker compose up --build
+```
+
+Starts the backend at `http://localhost:8000`, running `alembic upgrade
+head` on every container start so the schema is always current, and
+persists the SQLite file on a named volume (`backend_data`) so it
+survives `docker compose down` (but not `docker compose down -v`, which
+removes the volume). Run the frontend alongside it the normal way:
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Build/run the backend image directly, without Compose:
+
+```bash
+cd backend
+docker build -t sociallens-backend .
+docker run -p 8000:8000 --env-file .env sociallens-backend
+```
+
+(Without Compose, the SQLite file lives inside the container's writable
+layer and is lost when the container is removed — fine for a quick check,
+not for anything you want to keep.) The image's `HEALTHCHECK` and the
+Compose `healthcheck:` block both poll `GET /api/v1/health`.
+
+**Verification note:** Docker Desktop isn't available in the sandbox this
+was built in (confirmed: no `docker` binary, no Docker Desktop install),
+and a WSL2-based fallback attempt to exercise the same apt-tesseract +
+pip-install + alembic + uvicorn chain hung on process spawning — the same
+class of sandbox restriction already hit by Vitest and Playwright in
+Phase 8 (see docs/decisions.md). The Dockerfile and Compose file were
+reviewed carefully line-by-line and cross-checked against the app's real
+config (`app/core/config.py`, the actual `/api/v1/health` route, the
+runtime-only `requirements.txt`, the rate limiter's proxy-header needs —
+see section 16) instead, but neither `docker build` nor `docker compose
+up` has actually been run end-to-end. Run the commands above and confirm
+before relying on this in a real deployment — see docs/decisions.md for
+the full note.
 
 ## 16. Deployment instructions
 
-_Added in Phase 9._ Target: free/low-cost tiers (e.g. Render/Railway for
-the backend, Vercel for the frontend).
+Target: free tiers, no infrastructure beyond what's already here (no
+Kubernetes, no managed database, no object storage, no CI/CD pipeline).
+
+**Backend → [Render](https://render.com), Docker runtime, free tier:**
+
+1. Push the repo to GitHub (Render deploys from a Git connection).
+2. Render dashboard → New → Web Service → connect the repo.
+3. Root Directory: `backend`. Render auto-detects `backend/Dockerfile`
+   and uses it as the runtime — no build/start command needed.
+4. Environment variables: `GEMINI_API_KEY` (your key), `CORS_ORIGINS`
+   (the frontend's deployed URL, added after step 5 below — leave it as
+   `http://localhost:3000` for now and update it once you have the real
+   URL). Leave `DATABASE_URL` unset (the image's default SQLite path is
+   fine for a single free instance).
+5. Instance type: Free. Deploy.
+
+Render injects `PORT`; the Dockerfile's `CMD` already binds to
+`${PORT:-8000}`, so nothing else to configure. It also runs behind
+Render's own ingress proxy — every request's real origin arrives via
+`X-Forwarded-For`, not as the direct TCP peer — so the Dockerfile passes
+`--proxy-headers --forwarded-allow-ips='*'` to uvicorn. Without that, the
+per-IP rate limiter on `/documents` and `/documents/{id}/analyze`
+(`app/core/rate_limit.py`) would see every request as coming from
+Render's proxy and rate-limit all users collectively instead of
+individually. Trusting `*` here is specifically safe because the
+container is never reachable except through that one proxy hop — it
+would be wrong for a server exposed directly to the internet.
+
+**Frontend → [Vercel](https://vercel.com):**
+
+1. Import the same repo. Root Directory: `frontend`. Framework preset
+   (Next.js) is auto-detected — no config needed.
+2. Environment variable: `NEXT_PUBLIC_API_URL` = the Render backend's
+   public URL (e.g. `https://sociallens-backend.onrender.com`).
+3. Deploy, then go back to Render and update `CORS_ORIGINS` to the
+   resulting `https://<project>.vercel.app` URL (exact origin, not `*` —
+   `allow_credentials=True` is set in `app/main.py`, and browsers reject
+   a wildcard origin paired with credentials anyway) and let it restart.
+
+**Alternatives to Render:** Railway and Fly.io both also build from a
+Dockerfile on a free/low-cost tier and would need the same three
+environment variables — Render is the primary recommendation here mainly
+because its free-tier setup needs the fewest manual steps.
+
+**Known deployment limitations, by design (not bugs):**
+
+- Render's free web services spin down after 15 minutes idle and cold-
+  start (~30-60s) on the next request — acceptable for an assessment
+  demo, not for a low-latency production service.
+- Free-tier disks are ephemeral: the SQLite file resets on every redeploy
+  and (per Render's free-tier behavior) on restart after idle spin-down.
+  Data isn't expected to persist across those events — Render's persistent
+  disk add-on isn't free, and adding it (or moving to Postgres, already
+  a connection-string change per docs/decisions.md) is a deliberate
+  upgrade path, not something this phase's "no unnecessary infrastructure"
+  instruction called for.
+- The rate limiter (`app/core/rate_limit.py`) is in-memory and per-
+  instance — correct for Render's single free-tier instance, but it
+  would need a shared store (e.g. Redis) to stay correct if this were
+  ever scaled to multiple instances. Not needed at this deployment's
+  scale, and adding Redis now would be exactly the kind of unneeded
+  infrastructure this phase avoids.
+- No CDN, autoscaling, or multi-region setup — one instance, matching the
+  app's modular-monolith design (docs/architecture.md).
 
 ## 17. Known limitations
 
