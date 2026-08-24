@@ -8,9 +8,28 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.core.exceptions import AiAnalysisFailedError, InvalidAiResponseError
+from app.core.exceptions import (
+    AiAnalysisFailedError,
+    AiRateLimitedError,
+    InvalidAiResponseError,
+)
 from app.providers.llm.base import AiAnalysisResult
 from app.providers.llm.gemini import GeminiProvider
+
+
+class _ApiError(Exception):
+    """Stands in for a google-genai APIError, which carries an HTTP `code`."""
+
+    def __init__(self, code: int, message: str = "upstream error"):
+        super().__init__(message)
+        self.code = code
+
+
+@pytest.fixture(autouse=True)
+def _no_sleep(monkeypatch):
+    """Retry backoff is real time; tests assert the retry logic, not the wait."""
+    monkeypatch.setattr("app.providers.llm.gemini.time.sleep", lambda _seconds: None)
+
 
 VALID_PAYLOAD = {
     "overall_score": 82,
@@ -77,6 +96,74 @@ def test_analyze_raises_ai_analysis_failed_on_request_error(monkeypatch):
 
     with pytest.raises(AiAnalysisFailedError, match="connection reset"):
         provider.analyze(text="content", platform="generic")
+
+
+def test_analyze_retries_transient_error_then_succeeds(monkeypatch):
+    provider = _provider()
+    calls = {"n": 0}
+
+    def flaky(**kwargs):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise _ApiError(503, "service unavailable")
+        return SimpleNamespace(text=json.dumps(VALID_PAYLOAD))
+
+    monkeypatch.setattr(provider._client.models, "generate_content", flaky)
+
+    result = provider.analyze(text="content", platform="generic")
+
+    assert result.overall_score == 82
+    assert calls["n"] == 3  # two failures, third attempt succeeded
+
+
+def test_analyze_retries_rate_limit_then_raises_dedicated_error(monkeypatch):
+    provider = _provider()
+    calls = {"n": 0}
+
+    def always_rate_limited(**kwargs):
+        calls["n"] += 1
+        raise _ApiError(429, "RESOURCE_EXHAUSTED")
+
+    monkeypatch.setattr(provider._client.models, "generate_content", always_rate_limited)
+
+    with pytest.raises(AiRateLimitedError, match="rate-limited"):
+        provider.analyze(text="content", platform="generic")
+
+    assert calls["n"] == 3  # exhausted every attempt before giving up
+
+
+def test_analyze_does_not_retry_non_transient_error(monkeypatch):
+    """A 400 is the caller's fault — retrying only delays the error."""
+    provider = _provider()
+    calls = {"n": 0}
+
+    def bad_request(**kwargs):
+        calls["n"] += 1
+        raise _ApiError(400, "invalid argument")
+
+    monkeypatch.setattr(provider._client.models, "generate_content", bad_request)
+
+    with pytest.raises(AiAnalysisFailedError):
+        provider.analyze(text="content", platform="generic")
+
+    assert calls["n"] == 1
+
+
+def test_analyze_does_not_retry_unclassifiable_error(monkeypatch):
+    """No status code means we can't call it transient, so fail fast."""
+    provider = _provider()
+    calls = {"n": 0}
+
+    def raise_error(**kwargs):
+        calls["n"] += 1
+        raise RuntimeError("connection reset")
+
+    monkeypatch.setattr(provider._client.models, "generate_content", raise_error)
+
+    with pytest.raises(AiAnalysisFailedError, match="connection reset"):
+        provider.analyze(text="content", platform="generic")
+
+    assert calls["n"] == 1
 
 
 def test_analyze_raises_invalid_ai_response_on_empty_text(monkeypatch):

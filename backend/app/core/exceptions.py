@@ -53,6 +53,18 @@ class AiAnalysisFailedError(AppError):
     status_code = status.HTTP_502_BAD_GATEWAY
 
 
+class AiRateLimitedError(AppError):
+    """Separate from AiAnalysisFailedError on purpose: rate limiting is the
+    one LLM failure the user can actually act on (wait and retry), and on a
+    free-tier API key it is by far the most likely one. Folding it into the
+    generic "temporarily unavailable" message hides the only useful thing
+    we know about the failure.
+    """
+
+    error_code = "AI_RATE_LIMITED"
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+
+
 class InvalidAiResponseError(AppError):
     error_code = "INVALID_AI_RESPONSE"
     status_code = status.HTTP_502_BAD_GATEWAY

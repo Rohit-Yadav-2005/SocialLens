@@ -2,6 +2,61 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## Retry transient Gemini failures; name rate limiting separately
+
+Report from the deployed app: analysis failed at the "Analyzing content"
+stage with "The AI analysis service is temporarily unavailable."
+
+**Diagnosis first, fix second.** Reproduced the exact failing path
+against production rather than guessing — generated a PNG in-browser,
+uploaded it from the deployed origin, and let it run the full
+OCR → Gemini route. It succeeded: `extraction_method: "ocr"`,
+confidence 95.5, analysis returned in 13.2s. A PDF (native-text) path
+succeeded too. So the API key is configured and working, and the
+failure was transient rather than a broken deployment.
+
+Two real weaknesses turned a transient blip into a dead end:
+
+1. **No retry anywhere in the LLM path.** Confirmed by grep — no retry,
+   backoff, or timeout in `providers/llm/`, `analysis_service.py`, or
+   `config.py`. A single 429 or 503 from Gemini permanently failed the
+   user's analysis with no second attempt, on a free-tier key whose
+   quota is low enough that 429 is the *expected* failure, not an edge
+   case.
+2. **The one useful fact about the failure was thrown away.** The
+   backend already puts the real reason in the response
+   (`Gemini request failed: {exc}`), but the frontend's `error_code` →
+   message map replaced it with a generic string. The information
+   needed to diagnose this reached the browser and was discarded there.
+
+Fixes:
+
+- `GeminiProvider._generate_with_retry`: 3 attempts with 1.5s/4.0s
+  backoff, retrying **only** statuses positively identified as
+  transient (429, 500, 502, 503, 504). Anything else — including an
+  exception carrying no status at all — fails on the first attempt,
+  since retrying a 400 or a genuine bug just makes the user wait longer
+  for the same error. Backoff is deliberately short: this runs inside
+  the user's HTTP request, on a host that is already slow.
+- Status is read duck-typed (`getattr(exc, "code"/"status_code")`)
+  rather than by importing google-genai's error classes, so the SDK
+  reshuffling its exception hierarchy degrades to "unclassifiable →
+  fail fast" instead of crashing.
+- New `AiRateLimitedError` (`AI_RATE_LIMITED`, 429) split out from
+  `AiAnalysisFailedError`. Rate limiting is the one LLM failure the
+  user can act on, and on a free-tier key it's the most likely one —
+  "wait a minute and try again" is real guidance, where "temporarily
+  unavailable" is not.
+
+Covered by four new tests: retry-then-succeed, rate-limit exhausts all
+attempts then raises the dedicated error, and two no-retry cases (a 400,
+and an exception with no status code) asserting exactly one call.
+
+**Not fixed, worth knowing:** OCR upload of a 1024x801 PNG took 33s on
+Render's free instance (0.1 CPU). That's inherent to the tier, not a
+code defect, but it means the first analysis after a cold start can
+approach a minute end-to-end.
+
 ## UI redesign #4: delete the skeleton, not the paint
 
 Feedback after redesign #3 and the two passes that followed it: *"it

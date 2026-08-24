@@ -10,6 +10,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_TEXT_FOUND: "No readable text could be found in this document.",
   OCR_FAILED: "Text recognition (OCR) failed. The file may be low quality or unreadable.",
   AI_ANALYSIS_FAILED: "The AI analysis service is temporarily unavailable. Try again shortly.",
+  AI_RATE_LIMITED:
+    "The AI service is busy right now (rate limit reached). Wait about a minute, then try again.",
   INVALID_AI_RESPONSE: "The AI returned an unexpected response. Try again.",
   DATABASE_ERROR: "A server error occurred. Try again shortly.",
   NOT_FOUND: "We couldn't find what you were looking for.",
