@@ -6,6 +6,14 @@ SocialLens extracts text from uploaded PDFs and images (with OCR fallback
 for scanned documents), analyzes the content as social-media copy, scores
 it across several dimensions, and generates an improved rewrite.
 
+**Live application:** https://social-lens-theta.vercel.app
+
+The API is deployed separately at https://sociallens-57c4.onrender.com
+(interactive docs at [`/docs`](https://sociallens-57c4.onrender.com/docs)).
+Both run on free tiers, so the backend spins down when idle — the first
+request after a quiet period takes ~30–60s to wake it, and History and
+Insights may briefly show their empty state until it responds.
+
 ## 1. Overview
 
 Upload a PDF or image containing social-media content (a LinkedIn post, a

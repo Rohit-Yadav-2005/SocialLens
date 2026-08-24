@@ -34,12 +34,12 @@ frontend/playwright-report/
 frontend/blob-report/
 frontend/coverage/
 
-# --- Claude Code session state ---
-.claude/scheduled_tasks.lock
-
-# --- Editor / OS ---
+# --- Editor / OS / local tooling ---
 .vscode/
 .idea/
+.claude/
+CLAUDE.md
+AGENTS.md
 .DS_Store
 Thumbs.db
 
