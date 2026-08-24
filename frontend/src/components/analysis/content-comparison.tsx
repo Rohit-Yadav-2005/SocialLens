@@ -48,22 +48,15 @@ export function ContentComparison({ originalContent, improvedContent }: ContentC
         </CardContent>
       </Card>
 
-      {/* The improved rewrite is the payoff of the whole flow — it gets the
-          gradient hairline and bloom so the eye lands here first. */}
-      <Card className="spectral-ring relative overflow-hidden border-transparent">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -right-20 size-64 rounded-full opacity-40 blur-[80px]"
-          style={{ background: "var(--glow-primary)" }}
-        />
-
-        <CardHeader className="relative flex flex-row items-center justify-between gap-3">
-          <CardTitle className="text-lg">
-            <span className="text-spectral">AI-improved content</span>
-          </CardTitle>
+      {/* The improved rewrite is the payoff of the whole flow — it gets
+          the second brand color (not primary), since primary means
+          "act on this" and this card is a result, not an action. */}
+      <Card className="border-accent-2/45">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle className="text-lg text-accent-2">AI-improved content</CardTitle>
           <CopyButton text={improvedContent} copyKey="improved" />
         </CardHeader>
-        <CardContent className="relative">
+        <CardContent>
           <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
             {improvedContent}
           </p>

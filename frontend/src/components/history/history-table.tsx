@@ -91,7 +91,7 @@ export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
         />
       </div>
 
-      <div className="shadow-card overflow-x-auto rounded-2xl border border-border/70 bg-card/70 backdrop-blur-sm">
+      <div className="shadow-2 overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">

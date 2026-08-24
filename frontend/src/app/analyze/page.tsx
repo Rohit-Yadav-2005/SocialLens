@@ -35,7 +35,7 @@ export default function AnalyzePage() {
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div className="animate-fade-up text-center">
-        <p className="text-spectral text-xs font-semibold tracking-[0.18em] uppercase">
+        <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">
           Step 01
         </p>
         <h1 className="font-display mt-3 text-4xl font-semibold text-balance sm:text-5xl">

@@ -2,6 +2,394 @@
 
 Running log of notable decisions and why they were made. Newest first.
 
+## UI redesign #4: delete the skeleton, not the paint
+
+Feedback after redesign #3 and the two passes that followed it: *"it
+still looks thrash with the same structure... I keep bringing out the
+same page with barely any changes. I want you to entirely REDESIGN the
+UI."* That criticism was correct and worth recording plainly: rounds
+#2 and #3 and the two color/typography passes all changed tokens,
+fonts, and colors while leaving the same information architecture
+underneath — masthead, hero split, boxed feature card, boxed CTA. A
+palette swap on an unchanged skeleton reads as "barely any changes"
+because it *is* barely any change, no matter how much the tokens move.
+
+So this round changed structure only, and the check was mechanical
+rather than aesthetic — **zero shadcn `Card` components on the landing
+page** (`document.querySelectorAll('[data-slot="card"]').length === 0`,
+verified live), because every prior round had reached for a bordered,
+shadowed card as the default container for anything.
+
+The page is now a single top-down "manuscript": dateline → headline →
+the sample post set directly on the page → action row → pull quote →
+"continued" dateline → drop-cap paragraph → metrics → colophon.
+Concretely:
+
+- **Header** (`layout/header.tsx`): dropped `sticky top-0 z-40` and the
+  `.glass` backdrop blur; it's a static masthead now. The filled
+  `Button` CTA became a bordered monospace text link — a document
+  command, not a marketing button.
+- **`landing/annotated-example.tsx`**: was a legend list underneath a
+  boxed widget; now a real margin-note side column
+  (`lg:grid-cols-[1fr_260px]`) beside text that sits directly on the
+  page with no border or shadow. Verified genuinely side-by-side at
+  1440px (columns at x=299–831 and x=871–1131, same baseline), not
+  stacked.
+- **`landing/capability-demo.tsx`**: was a dashboard panel; now a
+  top-ruled stat grid and a bottom-ruled numbered list, in page flow.
+- **`app/page.tsx`**: filled pill CTAs replaced with bracket-style
+  bordered text links throughout.
+
+**The page-sheet fix.** Follow-up feedback: wide viewports left "blank
+wide margin which makes the page look slightly empty." Root cause is
+specific to the single-column manuscript structure — a centered column
+on a full-bleed background has nothing to terminate the eye at the
+edges. Fixed by bounding the page in a `max-w-6xl` container with
+`lg:border-x`, so past ~1152px you get a visible sheet edge instead of
+open void (verified: at a 1440px viewport the sheet renders 1152px wide
+with rules at x=139 and x=1291). Below that width the border is
+off-screen and nothing changes, so mobile is untouched.
+
+## Palette: indigo ink + antique gold, and why the first fix wasn't enough
+
+"I do not like the current red-orangish color theme." Replaced the
+rust/terracotta primary with a deep indigo ink
+(`oklch(0.42 0.14 264)` light / `0.75 0.13 264` dark) and the teal
+accent-2 with an antique gold (`0.48 0.14 75` / `0.8 0.13 80`).
+Contrast computed from the OKLCH values before committing to them, not
+eyeballed: 8.4:1 and 6.5:1 in light, 8.8:1 and 10.4:1 in dark.
+
+Two follow-up rounds were needed, and the reason each was needed is the
+useful part:
+
+1. **The dark background was still hue 32.** The dark neutrals
+   (`--background`, `--card`, `--muted`, ...) were a warm espresso
+   left over from the rust palette, so the new cool indigo sat on a
+   warm maroon field and fought it. Moved every dark neutral to a cool
+   ink-blue (hue 258). Recoloring a primary is not enough when the
+   neutrals were themselves tinted toward the *old* primary — that
+   tint is easy to miss because it reads as "the background," not as a
+   color decision.
+2. **The quality-scale red/amber clashed on chroma, not hue.** First
+   attempt only shifted their hues away from the discarded rust. Still
+   wrong, because the real mismatch was intensity: the red and amber
+   were lighter and more saturated than the deliberately restrained
+   indigo and gold, so they read as bright warning stickers next to a
+   muted palette. Pulled both deeper and down to the same chroma family
+   (`#ef6661` → `#d85164` wine red, `#ee9b58` → `#d2833b` brass amber
+   in dark mode; matching adjustment in light mode, which had the same
+   latent clash). **Hue distance alone doesn't make colors coexist —
+   they also have to agree on how loud they are.**
+
+The four-step quality scale stays deliberately separate from both brand
+colors (data color, not brand color, per the earlier color pass), and
+still shares no hue with either.
+
+Verification for all of the above read *rendered* computed styles off
+the live page via a canvas-based color normalizer, not the CSS custom
+properties — `getComputedStyle` returns `lab()`/`oklch()` strings for
+this palette, which naive regex parsing silently corrupts (the same
+trap documented in the earlier color pass).
+
+## Grounded the design in real data instead of another aesthetic guess
+
+Still "bad" after the color pass. At this point four rounds of "try
+again" on pure aesthetic judgment had diminishing returns — the user
+pointed at two external references
+(`github.com/nextlevelbuilder/ui-ux-pro-max-skill`, `21st.dev`) instead
+of describing the problem again, which is itself a signal: stop
+guessing, go get real reference data. Pulled the actual structured
+data from the first repo (`products.csv`, `styles.csv`,
+`typography.csv`, `colors.csv` — 192 product-category rows, 88 style
+definitions, 74 font pairings) rather than just reading its README
+description, since the README alone wouldn't have surfaced anything
+actionable.
+
+**Category match, concretely, not vibes.** Cross-referenced SocialLens
+against the product taxonomy: closest matches are Magazine/Blog
+("Swiss Modernism 2.0", typography-focused), Notes & Writing App, and
+Bookmark/Read-Later ("paper warm white + ink + minimal accent" — which
+the redesign already happened to land on independently, a useful cross-
+check). The font-pairing data had a near-exact match for what this
+product actually is (B2B SaaS + analytics + editorial + human warmth):
+row 61, "SaaS Mobile Boutique" — Calistoga display / Inter body / mono
+labels, with italic explicitly reserved for pull quotes and editorial
+callouts, never regular headings.
+
+**The concrete, actionable gap this surfaced**: the Editorial Grid /
+Magazine style's own checklist requires pull quotes and drop caps —
+real print-journalism devices — and this page had neither, on any of
+the three previous passes. That's a more specific, checkable finding
+than "make it feel more premium." Added both:
+
+- **Font**: replaced Newsreader with Calistoga (`app/layout.tsx`) — a
+  warm slab-serif validated by the actual data for this exact product
+  category, not another personal pick. Hit a real, different
+  `next/font/google` gap this time: Calistoga has a true italic on
+  Google Fonts' own catalog, but next/font/google's registry only lists
+  a "normal" style for it (`Unknown style italic for font Calistoga.
+  Available styles: normal` — caught by loading the page, same as the
+  Fraunces and Newsreader font errors earlier). Worth remembering:
+  next/font/google's available-styles list doesn't always match Google
+  Fonts' own catalog for a given family — check by loading the page,
+  not by trusting the family's Google Fonts page. Fixed by requesting
+  only `style: "normal"` and applying `italic` as a Tailwind class on
+  top — a browser-synthesized slant on the regular weight, not a true
+  italic design, but a normal and imperceptible fallback for a single
+  pull-quote use.
+- **Pull quote**: a new section between the hero and the capability
+  demo, "Most weak posts don't need a rewrite. They need one sentence
+  fixed." — set in italic Calistoga, large, centered, breaking the
+  page's rhythm on purpose (the classic function of a magazine pull
+  quote: a resting point, not more content).
+- **Drop cap**: new `.drop-cap` utility (`::first-letter`, set in the
+  display face, sized against the paragraph's own line-height) applied
+  to the capability section's opening paragraph.
+
+Verified live, not assumed: `.drop-cap`'s `::first-letter` computed
+style (54px, colored in primary) and the pull quote's actual `font-style:
+italic` both confirmed via `getComputedStyle` in a real browser; zero
+horizontal overflow; contrast on the pull quote text still 16.8:1.
+85/85 tests, ESLint, and `tsc --noEmit` pass.
+
+## Color pass: two real brand colors instead of one sparse one
+
+Feedback on redesign #3: "looks bland." Fair — the one-sparse-accent
+rule from redesign #2 (kill the gradient, use the brand color only on
+truly interactive elements, neutral everywhere else) was correct as far
+as it went, but taken with the also-correct "no glow blobs" rule, the
+result had almost no color left anywhere. Restraint and blandness aren't
+the same thing; overcorrected past the former into the latter.
+
+**Two real solid brand colors, still never blended into a gradient.**
+Kept `--primary` (rust/terracotta, the "act on this" color — buttons,
+focus rings, links) and added `--accent-2` (a deep teal, the "here's the
+result" color). The distinction is deliberate, not decorative: applied
+`accent-2` to the AI-improved-content card border/heading in
+`content-comparison.tsx`, which previously used `primary` — meaning the
+"open a card" affordance and "here's the payoff" result used to look
+identical, and now don't. Two distinct solids used for two distinct
+meanings is a different thing from a five-stop gradient used as
+wallpaper; the first redesign's mistake was the latter, not "any color
+beyond one."
+
+**Deepened the base palette itself**, not just the accents — this is
+most of where "bland" actually lived. Light background went from
+`oklch(0.983 0.004 60)` (chroma 0.004 — barely a color at all) to
+`oklch(0.96 0.012 55)`; dark background from `oklch(0.16 0.012 40)` to
+`oklch(0.15 0.026 32)`, more than doubling the chroma. Verified live in
+the browser, not just in the token file: dark mode's rendered
+`background-color` is genuinely `rgb(21, 7, 5)` — a real saturated
+espresso-red-black — and light mode is `rgb(249, 240, 234)`, a real warm
+cream, not off-white-that-happens-to-have-a-hue-value.
+
+**New token needed registering in `@theme inline`, not just `:root`/
+`.dark`.** Tailwind v4 only generates utilities (`text-accent-2`,
+`border-accent-2`, etc.) for tokens explicitly mapped under
+`--color-*` in the `@theme` block — adding `--accent-2` to `:root`
+alone doesn't do that. Caught a real verification pitfall while
+confirming this worked: testing `border-accent-2` (no opacity suffix) in
+the live DOM came back as the *default* border color, looking exactly
+like a registration bug — but the actual source only ever uses
+`border-accent-2/45`, and Tailwind's JIT scanner generates CSS for the
+exact class strings it finds in source, not every theoretically-valid
+variant. Re-tested with the literal string used in code
+(`border-accent-2/45`) and it resolved correctly. Worth remembering:
+testing a Tailwind utility class needs the *exact* string from source,
+including modifiers — a plausible-looking near-miss string can fail for
+reasons that have nothing to do with whether the real usage works.
+
+All 85 frontend tests, ESLint, and `tsc --noEmit` still pass. Contrast
+re-verified in both themes after the change (canvas-based, real
+rendered colors): headline 16.8:1 (light) / 18.1:1 (dark), primary
+button 6.4:1 / 8.0:1 — both comfortably clear of AA's 4.5:1 floor even
+after the richer, higher-chroma values.
+
+## UI redesign #3: rebuild the structure, not just the skin
+
+Direct pushback on redesign #2 (below), and correct: "you did not change
+much, it looks like it just changed the color code." True — the skeleton
+was untouched: navbar -> centered hero (headline+CTA / supporting
+visual) -> 4-icon-square feature grid -> 3-step numbered list -> closing
+CTA card. That arrangement is itself the tell (`AI-generated frontends
+... predictable wireframe scaffolding`, per the reference material the
+user supplied), independent of color or font. Recoloring it or reserifing
+the headings doesn't touch the actual problem.
+
+**Audited the codebase against the supplied tell list before changing
+anything** (grepped for console-log noise, `any` escapes, submit-handler
+naming drift, missing effect cleanup) — genuinely clean on every one.
+Worth recording precisely because it means the fix is 100% in structure/
+composition, not code hygiene; no manufactured findings to pad the
+response.
+
+**Font, again.** Fraunces (redesign #2's choice) is itself a "quirky
+variable soft-serif" that's become a recognizable AI-template default —
+picking a different flavor of the same category doesn't fix the
+category. Replaced with Newsreader: a genuine long-form/publication
+reading serif, not a startup-landing-page face. Hit the same
+`next/font/google` "axes requires weight: variable" error as before on
+first attempt (fixed identically) — worth noting this is now a known
+constraint for any future font swap in this project, not a one-off fluke.
+
+**Structural rebuild, not rearrangement:**
+
+- **Dissolved both the 4-icon feature grid and the 3-step "how it
+  works" list.** Their content (extract/analyze/improve/track) was
+  genuinely redundant between the two sections, and "icon in a bordered
+  square times four" is arguably *the* single most recognized
+  component-library default that exists. Replaced with one section built
+  on the *same* sample post from the hero, taken one step further:
+  `components/landing/capability-demo.tsx` shows that post's actual
+  deterministic metrics (word count, hashtags, a readability number) and
+  the two recommendations it would actually generate. The page now reads
+  as one continuous demonstration — headline, then the post, then what
+  the post's own numbers and fixes look like — instead of four
+  disconnected abstract blurbs.
+- **New `components/landing/sample-post.ts`** is the shared source of
+  truth for that one example (text, annotations, metrics,
+  recommendations), imported by both the hero and the capability
+  section — the continuity is structural (one `const`), not just a
+  copy-writing choice that could drift.
+- **The example is the dominant hero element, not a decorative aside.**
+  Inverted the previous side-by-side ratio: the annotated post now sits
+  in a 7-of-12-column span with the subhead/CTA in the remaining 5,
+  instead of matched ~50/50 columns with the visual as a supporting
+  element beside the "real" text content. Confirmed in a real browser at
+  1440px: the example renders at 621px inside the ~1088px content width
+  — genuinely 7/12, not eyeballed.
+- **Motion cut from 10 scroll-reveals to 1.** Staggering every grid item
+  by a uniform delay was itself a pattern — motion applied because it was
+  easy to apply everywhere, not because any specific element earned it.
+  Confirmed via `document.querySelectorAll('.reveal').length` before
+  (10) and after (1) the rebuild.
+- **Closing section de-boxed.** Was a centered, bordered, padded card
+  with its own heading+subhead pair (redundant with the hero's own
+  heading+subhead pattern) — now a plain, asymmetric heading+button row
+  with no card wrapper, and copy that names the actual action ("Upload
+  your own draft and see what it finds") instead of generic
+  "Ready to improve your next post?" phrasing.
+- **Copy pass**: cut "A complete content review, in seconds" and similar
+  near-boilerplate lines flagged in the user's own brief; replaced with
+  sentences that only make sense next to the specific example they sit
+  beside (e.g. "computed directly from the text above, not guessed at").
+
+All 85 frontend tests, ESLint, and `tsc --noEmit` still pass; verified
+live in-browser (not assumed): zero horizontal overflow, the 7/12
+column ratio at desktop width, and the reveal-element count dropping
+from 10 to 1.
+
+## UI redesign #2: away from "Prism", toward a restrained editorial mark
+
+Direct user feedback on the "Prism" redesign (below): the landing page
+read as generic/AI-generated specifically because of the pattern that
+redesign leaned into — a violet-to-cyan gradient on the badge, headline,
+and CTA at once; glowing blurred background blobs; a pill badge with a
+pulsing dot; a "Turn X into Y" headline with a gradient word; a floating
+generic score-gauge mockup; two equal-weight hero buttons; a centered
+symmetric two-column layout; default-feeling type. Each of those is
+individually a known "AI/template" tell, and Prism had all of them at
+once. The brief was explicit: fix the tells, but land somewhere premium
+and deliberate, not stripped-down.
+
+**One brand accent, chosen for a reason, used sparingly.** Replaced the
+five-stop spectral gradient with a single burnt terracotta
+(`oklch(0.52 0.16 42)` light / `oklch(0.74 0.15 55)` dark) — an editor's-
+mark color, not a generic SaaS violet/teal/blue, and it appears only on
+truly interactive elements (the primary button, focus rings, the nav
+underline, one bordered card). Verified by computing actual WCAG contrast
+ratios (not eyeballed) before committing to values: button-fill-plus-text
+sits at 5.9:1 (light) / 7.5:1 (dark), both well past AA.
+
+**Quality-scale colors are a separate palette from the brand accent.**
+Found and fixed a real bug this surfaced: `scoreLabel()` in
+`lib/score-utils.ts` mapped "Good" scores to `var(--primary)` — meaning
+under the new one-accent system, a "Good" score would have rendered in
+the *exact same color* as the CTA button, the opposite of the intended
+separation. Re-pointed the whole four-step scale (needs-work/fair/good/
+excellent) to dedicated `chart-2..5` tokens (red -> amber -> teal ->
+green) that share no hue with the brand accent. Same fix applied to two
+Recharts gradient defs that referenced `--chart-1` (which now mirrors the
+brand accent) — replaced with flat single-color fills, which also reads
+more precise/intentional than a gradient on a data series.
+
+**Landing hero rebuilt against every specific point raised:** no badge;
+headline rewritten away from the "Turn X into Y" formula
+("Every post has a weak line. Find it before you publish."); the
+gauge-mockup replaced with `components/landing/annotated-example.tsx` —
+a realistic sample post with three specific flagged phrases and reasons,
+which is what "show real analyzed content, not a mockup" actually asked
+for; one primary CTA plus a plain de-emphasized text link, not two equal
+buttons; asymmetric 7/5 column split with the example rotated and not
+vertically centered against the headline, instead of the old centered
+grid; glow blobs removed in favor of a faint `grid-lines` texture that
+fades out toward the bottom of the hero.
+
+**Typography: Fraunces (display) + Geist (body), not Space Grotesk.**
+Space Grotesk paired with Geist is itself a very common
+"AI-generated-site" pairing at this point. Fraunces is a variable serif
+with real optical-size/soft-axis character, and — since SocialLens is
+fundamentally a close-reading/critique tool — a serif display face is
+thematically apt, not just different-for-its-own-sake. Hit a real
+Next.js constraint building this: `next/font/google` rejects a `weight`
+array combined with `axes` ("Axes can only be defined for variable fonts
+when the weight property is nonexistent or set to `variable`") — only
+caught by actually loading the page (a 500 the whole time until fixed),
+not by `tsc`/tests/lint, none of which touch font-loading config. Fixed
+by setting `weight: "variable"` instead of a fixed array.
+
+**Elevation instead of glow.** Every `--glow-primary`/`--glow-cyan`
+blurred-blob usage (14 files) and the `--spectral` gradient utilities
+(`bg-spectral`/`text-spectral`/`.spectral-ring`, 18 files) were removed
+from `globals.css` outright — not just unused, deleted — which meant
+sweeping every call site rather than leaving them silently unstyled.
+Replaced with a real 3-level shadow scale (`--shadow-1/2/3`, precise
+layered shadows, no color tint) and neutral bordered surfaces. Caught by
+this same sweep: `badge.tsx` used `rounded-4xl`, and `--radius-4xl` was
+one of the tokens trimmed from the new radius scale — would have quietly
+gone square-cornered. Found by grepping for `rounded-3xl|rounded-4xl`
+project-wide after trimming the token, not by visual inspection.
+
+**Motion:** micro-interactions tightened to 150-200ms (buttons: solid
+fill + `hover:bg-primary/90`, `active:scale-[0.98]`, existing
+`focus-visible` ring kept as-is since it was already correct); a real
+`useInView`/`Reveal` (`hooks/use-in-view.ts`,
+`components/layout/reveal.tsx`) IntersectionObserver pair drives
+scroll-triggered fade+translateY reveals, staggered per grouped item;
+`useCountUp` (`hooks/use-count-up.ts`) animates `OverallScoreCard`'s
+score number and its ring's arc off the *same* animated value, so they
+resolve in sync — an improvement over the old version, where the ring's
+CSS animation and the (static, non-counting) number were unsynced.
+
+Both new hooks read `prefers-reduced-motion` once via a `useState` lazy
+initializer and branch on that stored value, rather than calling
+`setState` synchronously inside `useEffect` for the reduced-motion case —
+the obvious-looking version of that fails a real lint rule
+(`react-hooks/set-state-in-effect`) precisely because effect-triggered
+setState causes an extra render pass; deriving it once and reading `?
+target : value` at the return site avoids the extra render entirely
+rather than just silencing the warning.
+
+**jsdom needed a `matchMedia` polyfill** (`vitest.setup.ts`) once these
+hooks shipped — jsdom doesn't implement it, so every test touching
+`OverallScoreCard` failed with `window.matchMedia is not a function`
+until added. Defaulted the polyfill to "reduced motion" for tests (not
+"no preference") on purpose: tests assert on final rendered content, not
+animation timing, and reduced-motion mode resolves both hooks to their
+final value immediately, so existing assertions needed no `waitFor`
+changes at all.
+
+All 85 frontend tests, ESLint, and `tsc --noEmit` pass. Verified beyond
+that in a real browser rather than assumed: computed WCAG contrast via a
+canvas-based color normalizer (not raw `getComputedStyle` string
+parsing, which silently produces garbage on `lab()`/`oklch()` computed
+values — caught this the hard way when a first attempt reported
+nonsensical ~1.4:1 contrast on clearly-readable dark-on-light text) in
+both themes; confirmed all 10 scroll-reveal elements fire on scroll;
+confirmed zero horizontal overflow at 375px; confirmed the font-loading
+500 was real by watching the page actually fail before the fix, not just
+inferring it from the error text.
+
 ## Real deploy failure: a builtin-shadowing bug only Python <3.14 hits
 
 The first actual Render deploy crashed at container startup —

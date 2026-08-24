@@ -46,12 +46,6 @@ export function CommonWeaknessesChart({ weaknesses }: CommonWeaknessesChartProps
                   tickLine={false}
                   axisLine={false}
                 />
-                <defs>
-                  <linearGradient id="weakness-fill" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="var(--chart-1)" />
-                    <stop offset="100%" stopColor="var(--chart-2)" />
-                  </linearGradient>
-                </defs>
                 <Tooltip
                   cursor={{ fill: "var(--muted)", opacity: 0.5 }}
                   contentStyle={{
@@ -59,15 +53,10 @@ export function CommonWeaknessesChart({ weaknesses }: CommonWeaknessesChartProps
                     border: "1px solid var(--border)",
                     borderRadius: "var(--radius-lg)",
                     fontSize: 12,
-                    boxShadow: "var(--shadow-card)",
+                    boxShadow: "var(--shadow-2)",
                   }}
                 />
-                <Bar
-                  dataKey="count"
-                  fill="url(#weakness-fill)"
-                  radius={[0, 6, 6, 0]}
-                  barSize={22}
-                />
+                <Bar dataKey="count" fill="var(--chart-2)" radius={[0, 4, 4, 0]} barSize={22} />
               </BarChart>
             </ResponsiveContainer>
           </div>

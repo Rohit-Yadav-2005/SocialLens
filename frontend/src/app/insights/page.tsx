@@ -22,7 +22,7 @@ export default function InsightsPage() {
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <div className="animate-fade-up">
-        <p className="text-spectral text-xs font-semibold tracking-[0.18em] uppercase">
+        <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">
           Aggregate view
         </p>
         <h1 className="font-display mt-3 text-4xl font-semibold sm:text-5xl">Insights</h1>

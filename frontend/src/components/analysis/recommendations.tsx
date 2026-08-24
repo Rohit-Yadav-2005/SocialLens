@@ -8,23 +8,17 @@ interface RecommendationsProps {
 
 export function Recommendations({ items }: RecommendationsProps) {
   return (
-    <Card className="relative overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-20 -right-16 size-56 rounded-full opacity-30 blur-[80px]"
-        style={{ background: "var(--glow-primary)" }}
-      />
-
-      <CardHeader className="relative">
+    <Card>
+      <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <span className="bg-spectral flex size-7 items-center justify-center rounded-lg shadow-[0_1px_0_oklch(1_0_0/0.3)_inset]">
-            <Lightbulb className="size-4 text-white" aria-hidden="true" />
+          <span className="flex size-7 items-center justify-center rounded-lg border border-border bg-muted">
+            <Lightbulb className="size-4 text-primary" aria-hidden="true" />
           </span>
           Recommendations
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="relative">
+      <CardContent>
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">No specific recommendations.</p>
         ) : (
@@ -33,11 +27,11 @@ export function Recommendations({ items }: RecommendationsProps) {
               <li
                 key={item}
                 style={{ animationDelay: `${index * 70}ms` }}
-                className="animate-fade-up flex gap-3.5 rounded-xl border border-border/60 bg-background/40 p-4 text-sm leading-relaxed transition-colors hover:border-border"
+                className="animate-fade-up flex gap-3.5 rounded-lg border border-border bg-background/40 p-4 text-sm leading-relaxed transition-colors duration-150 hover:border-primary/30"
               >
                 <span
                   data-numeric
-                  className="bg-spectral flex size-6 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white shadow-[0_1px_0_oklch(1_0_0/0.3)_inset]"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/40 text-xs font-semibold text-primary"
                 >
                   {index + 1}
                 </span>

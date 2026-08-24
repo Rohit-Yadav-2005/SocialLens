@@ -43,12 +43,8 @@ export function ScoreTrendChart({ points }: ScoreTrendChartProps) {
               <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                 <defs>
                   <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.42} />
-                    <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="trend-stroke" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="var(--chart-1)" />
-                    <stop offset="100%" stopColor="var(--chart-3)" />
+                    <stop offset="0%" stopColor="var(--chart-4)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--chart-4)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -72,17 +68,17 @@ export function ScoreTrendChart({ points }: ScoreTrendChartProps) {
                     border: "1px solid var(--border)",
                     borderRadius: "var(--radius-lg)",
                     fontSize: 12,
-                    boxShadow: "var(--shadow-card)",
+                    boxShadow: "var(--shadow-2)",
                   }}
                 />
                 <Area
                   type="monotone"
                   dataKey="score"
-                  stroke="url(#trend-stroke)"
+                  stroke="var(--chart-4)"
                   strokeWidth={2.5}
                   fill="url(#trend-fill)"
-                  dot={{ r: 3, fill: "var(--chart-1)", strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: "var(--chart-1)", strokeWidth: 0 }}
+                  dot={{ r: 3, fill: "var(--chart-4)", strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: "var(--chart-4)", strokeWidth: 0 }}
                 />
               </AreaChart>
             </ResponsiveContainer>

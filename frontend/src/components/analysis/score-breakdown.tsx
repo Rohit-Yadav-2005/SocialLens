@@ -46,13 +46,7 @@ export function ScoreBreakdown({ analysis }: ScoreBreakdownProps) {
         <CardTitle className="text-lg">Score breakdown</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-8 lg:grid-cols-[minmax(0,340px)_1fr] lg:items-center">
-        <div className="relative h-72">
-          {/* Bloom behind the radar so it doesn't float on a flat plane. */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-8 rounded-full blur-[60px]"
-            style={{ background: "var(--glow-primary)" }}
-          />
+        <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={chartData} outerRadius="72%">
               <PolarGrid stroke="var(--border)" strokeDasharray="3 3" />

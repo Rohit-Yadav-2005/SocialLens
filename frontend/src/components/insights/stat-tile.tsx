@@ -10,7 +10,7 @@ export function StatTile({ label, value }: StatTileProps) {
     <Card className="lift group relative overflow-hidden p-5">
       <span
         aria-hidden="true"
-        className="bg-spectral absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 transition-transform duration-500 ease-out group-hover:scale-x-100"
+        className="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-primary transition-transform duration-200 ease-out group-hover:scale-x-100"
       />
       <CardContent className="p-0">
         <p className="text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">

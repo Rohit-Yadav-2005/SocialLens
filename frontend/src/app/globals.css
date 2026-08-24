@@ -5,20 +5,30 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   SocialLens design system — "Prism"
-   A lens refracts light into a spectrum. The whole visual
-   identity follows from that: a spectral gradient for brand
-   moments, and a score scale mapped onto the spectrum
-   (warm = needs work → cool = excellent).
+   SocialLens design system
+
+   Two real brand colors, not a gradient blending them: a deep indigo
+   ink (primary — the "act on this" color: buttons, focus rings,
+   links) and an antique gold (accent-2 — the "here's the result"
+   color: the AI-improved output, secondary emphasis). Kept as two
+   distinct solids on purpose — a gradient between them would just be
+   the same tell under a new palette.
+
+   Score quality is a separate, deliberately distinct four-step scale
+   (red -> amber -> teal -> green) — data color, not brand color. None
+   of the three systems share a hue, so "click this" / "this is the
+   result" / "this scored fair" are never visually confused.
    ============================================================ */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent-2: var(--accent-2);
+  --color-accent-2-foreground: var(--accent-2-foreground);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-display: var(--font-display-family), var(--font-geist-sans), sans-serif;
+  --font-display: var(--font-display-family), var(--font-geist-sans), serif;
   --font-heading: var(--font-display);
 
   --color-sidebar-ring: var(--sidebar-ring);
@@ -51,135 +61,132 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.3);
+  --radius-2xl: calc(var(--radius) * 1.6);
 
-  --animate-fade-up: fade-up 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-fade-in: fade-in 0.6s ease-out both;
-  --animate-float: float 7s ease-in-out infinite;
-  --animate-drift: drift 22s ease-in-out infinite alternate;
-  --animate-shimmer: shimmer 2.6s linear infinite;
-  --animate-sweep: sweep 2.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-grow-bar: grow-bar 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in: fade-in 0.4s ease-out both;
+  --animate-grow-bar: grow-bar 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-spin-slow: spin 1.1s cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 :root {
-  /* Light: warm-neutral paper with a violet cast — never pure #fff */
-  --background: oklch(0.982 0.005 285);
-  --foreground: oklch(0.19 0.022 280);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.022 280);
+  /* Rich warm cream — a real color, not gray-with-a-whisper-of-tint. */
+  --background: oklch(0.96 0.012 55);
+  --foreground: oklch(0.18 0.02 40);
+  --card: oklch(0.995 0.006 55);
+  --card-foreground: oklch(0.18 0.02 40);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.022 280);
+  --popover-foreground: oklch(0.18 0.02 40);
 
-  --primary: oklch(0.54 0.235 288);
-  --primary-foreground: oklch(0.99 0.004 285);
-  --secondary: oklch(0.955 0.008 285);
-  --secondary-foreground: oklch(0.26 0.03 283);
-  --muted: oklch(0.958 0.007 285);
-  --muted-foreground: oklch(0.505 0.025 282);
-  --accent: oklch(0.945 0.03 288);
-  --accent-foreground: oklch(0.42 0.19 288);
-  --destructive: oklch(0.585 0.225 22);
+  /* Primary: a deep indigo ink — the "action" color. Dark enough for
+     white text at AA (8.4:1, verified). */
+  --primary: oklch(0.42 0.14 264);
+  --primary-foreground: oklch(0.99 0.004 60);
+  /* Secondary accent: an antique gold — the "result/output" color (the
+     AI-improved content card, secondary chart moments). A genuine
+     second brand color, used as a distinct solid, never blended with
+     primary into a gradient. */
+  --accent-2: oklch(0.48 0.14 75);
+  --accent-2-foreground: oklch(0.99 0.004 60);
 
-  --border: oklch(0.905 0.012 285);
-  --input: oklch(0.9 0.014 285);
-  --ring: oklch(0.54 0.235 288);
+  --secondary: oklch(0.93 0.014 55);
+  --secondary-foreground: oklch(0.28 0.025 42);
+  --muted: oklch(0.93 0.014 55);
+  --muted-foreground: oklch(0.47 0.02 45);
+  --accent: oklch(0.9 0.045 38);
+  --accent-foreground: oklch(0.38 0.17 36);
+  --destructive: oklch(0.55 0.21 25);
 
-  /* The prism, warm → cool */
-  --chart-1: oklch(0.54 0.235 288); /* violet  — primary   */
-  --chart-2: oklch(0.58 0.19 258); /* indigo             */
-  --chart-3: oklch(0.66 0.15 178); /* teal    — excellent */
-  --chart-4: oklch(0.74 0.16 72); /* amber   — fair      */
-  --chart-5: oklch(0.62 0.21 16); /* rose    — needs work*/
+  --border: oklch(0.85 0.018 48);
+  --input: oklch(0.82 0.02 48);
+  --ring: oklch(0.42 0.14 264);
 
-  --radius: 0.75rem;
+  /* Quality scale — distinct hues from both brand colors (264, 75).
+     Tuned for AA-as-text against this background (verified >=4.5:1). */
+  --chart-1: oklch(0.42 0.14 264); /* mirrors primary, unused as data */
+  --chart-2: oklch(0.46 0.17 15); /* needs work — wine red */
+  --chart-3: oklch(0.5 0.12 60); /* fair       — brass amber */
+  --chart-4: oklch(0.5 0.13 165); /* good       — teal   */
+  --chart-5: oklch(0.5 0.17 142); /* excellent  — green  */
 
-  /* Brand gradients + glows */
-  --spectral: linear-gradient(
-    100deg,
-    oklch(0.62 0.24 300) 0%,
-    oklch(0.54 0.235 288) 28%,
-    oklch(0.58 0.19 254) 58%,
-    oklch(0.68 0.15 205) 82%,
-    oklch(0.72 0.14 178) 100%
-  );
-  --glow-primary: oklch(0.54 0.235 288 / 0.28);
-  --glow-cyan: oklch(0.7 0.15 205 / 0.22);
-  --surface-veil: oklch(1 0 0 / 0.72);
-  --grain-opacity: 0.032;
+  --radius: 0.625rem;
 
-  --shadow-card: 0 1px 2px oklch(0.2 0.03 285 / 0.05), 0 8px 24px -12px oklch(0.2 0.03 285 / 0.14);
-  --shadow-lift: 0 2px 4px oklch(0.2 0.03 285 / 0.06), 0 18px 44px -16px oklch(0.35 0.16 288 / 0.28);
+  --surface-veil: oklch(1 0 0 / 0.78);
+  --grain-opacity: 0.025;
 
-  --sidebar: oklch(0.985 0.005 285);
-  --sidebar-foreground: oklch(0.19 0.022 280);
-  --sidebar-primary: oklch(0.54 0.235 288);
-  --sidebar-primary-foreground: oklch(0.99 0.004 285);
-  --sidebar-accent: oklch(0.955 0.008 285);
-  --sidebar-accent-foreground: oklch(0.26 0.03 283);
-  --sidebar-border: oklch(0.905 0.012 285);
-  --sidebar-ring: oklch(0.54 0.235 288);
+  --shadow-1: 0 1px 2px oklch(0.25 0.03 35 / 0.08);
+  --shadow-2: 0 1px 2px oklch(0.25 0.03 35 / 0.06), 0 4px 12px -4px oklch(0.25 0.03 35 / 0.14);
+  --shadow-3: 0 2px 4px oklch(0.25 0.03 35 / 0.07), 0 18px 36px -12px oklch(0.25 0.03 35 / 0.24);
+
+  --sidebar: oklch(0.94 0.014 55);
+  --sidebar-foreground: oklch(0.18 0.02 40);
+  --sidebar-primary: oklch(0.42 0.14 264);
+  --sidebar-primary-foreground: oklch(0.99 0.004 60);
+  --sidebar-accent: oklch(0.93 0.014 55);
+  --sidebar-accent-foreground: oklch(0.28 0.025 42);
+  --sidebar-border: oklch(0.85 0.018 48);
+  --sidebar-ring: oklch(0.42 0.14 264);
 }
 
 .dark {
-  /* Dark: deep ink with a blue-violet cast — never pure black */
-  --background: oklch(0.155 0.021 279);
-  --foreground: oklch(0.968 0.006 285);
-  --card: oklch(0.198 0.024 280);
-  --card-foreground: oklch(0.968 0.006 285);
-  --popover: oklch(0.213 0.026 280);
-  --popover-foreground: oklch(0.968 0.006 285);
+  /* Deep ink-well blue-black — cool, to sit behind an indigo primary
+     without the two fighting. Never pure black. */
+  --background: oklch(0.155 0.018 258);
+  --foreground: oklch(0.97 0.008 258);
+  --card: oklch(0.21 0.024 258);
+  --card-foreground: oklch(0.97 0.008 258);
+  --popover: oklch(0.23 0.026 258);
+  --popover-foreground: oklch(0.97 0.008 258);
 
-  --primary: oklch(0.7 0.185 291);
-  --primary-foreground: oklch(0.16 0.03 285);
-  --secondary: oklch(0.262 0.028 281);
-  --secondary-foreground: oklch(0.968 0.006 285);
-  --muted: oklch(0.258 0.026 281);
-  --muted-foreground: oklch(0.712 0.028 283);
-  --accent: oklch(0.3 0.06 288);
-  --accent-foreground: oklch(0.85 0.13 291);
-  --destructive: oklch(0.7 0.19 20);
+  /* Lighter + more saturated in dark mode; paired with near-black text
+     at 8.8:1 (primary) / 10.4:1 (accent-2). */
+  --primary: oklch(0.75 0.13 264);
+  --primary-foreground: oklch(0.155 0.018 258);
+  --accent-2: oklch(0.8 0.13 80);
+  --accent-2-foreground: oklch(0.155 0.018 258);
 
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 13%);
-  --ring: oklch(0.7 0.185 291);
+  --secondary: oklch(0.28 0.022 258);
+  --secondary-foreground: oklch(0.97 0.008 258);
+  --muted: oklch(0.27 0.02 258);
+  --muted-foreground: oklch(0.7 0.018 258);
+  --accent: oklch(0.32 0.045 258);
+  --accent-foreground: oklch(0.86 0.08 264);
+  --destructive: oklch(0.68 0.19 22);
 
-  --chart-1: oklch(0.7 0.185 291);
-  --chart-2: oklch(0.7 0.16 254);
-  --chart-3: oklch(0.78 0.14 178);
-  --chart-4: oklch(0.82 0.15 76);
-  --chart-5: oklch(0.7 0.19 18);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.75 0.13 264);
 
-  --spectral: linear-gradient(
-    100deg,
-    oklch(0.76 0.19 305) 0%,
-    oklch(0.7 0.185 291) 28%,
-    oklch(0.7 0.16 254) 58%,
-    oklch(0.78 0.13 205) 82%,
-    oklch(0.82 0.13 178) 100%
-  );
-  --glow-primary: oklch(0.7 0.185 291 / 0.34);
-  --glow-cyan: oklch(0.78 0.13 200 / 0.24);
-  --surface-veil: oklch(0.198 0.024 280 / 0.72);
-  --grain-opacity: 0.055;
+  /* Quality scale, recolored away from the old rust-adjacent red/amber
+     and pulled deeper (wine red / brass amber, matched to the same
+     restrained chroma family as primary/accent-2) so they read as
+     deliberate ink annotations against the cool background instead of
+     bright warning-sticker warm tones. */
+  --chart-1: oklch(0.75 0.13 264);
+  --chart-2: oklch(0.62 0.17 15); /* needs work — wine red */
+  --chart-3: oklch(0.68 0.13 60); /* fair       — brass amber */
+  --chart-4: oklch(0.74 0.13 175); /* good       — teal   */
+  --chart-5: oklch(0.76 0.17 140); /* excellent  — green  */
 
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 10px 30px -14px oklch(0 0 0 / 0.65);
-  --shadow-lift: 0 2px 6px oklch(0 0 0 / 0.45), 0 24px 56px -20px oklch(0.5 0.2 291 / 0.45);
+  --surface-veil: oklch(0.21 0.024 258 / 0.85);
+  --grain-opacity: 0.05;
 
-  --sidebar: oklch(0.198 0.024 280);
-  --sidebar-foreground: oklch(0.968 0.006 285);
-  --sidebar-primary: oklch(0.7 0.185 291);
-  --sidebar-primary-foreground: oklch(0.16 0.03 285);
-  --sidebar-accent: oklch(0.262 0.028 281);
-  --sidebar-accent-foreground: oklch(0.968 0.006 285);
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.7 0.185 291);
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.35);
+  --shadow-2: 0 1px 2px oklch(0 0 0 / 0.3), 0 6px 18px -6px oklch(0 0 0 / 0.45);
+  --shadow-3: 0 2px 4px oklch(0 0 0 / 0.35), 0 22px 44px -14px oklch(0 0 0 / 0.6);
+
+  --sidebar: oklch(0.19 0.022 258);
+  --sidebar-foreground: oklch(0.97 0.008 258);
+  --sidebar-primary: oklch(0.75 0.13 264);
+  --sidebar-primary-foreground: oklch(0.155 0.018 258);
+  --sidebar-accent: oklch(0.28 0.022 258);
+  --sidebar-accent-foreground: oklch(0.97 0.008 258);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.75 0.13 264);
 }
 
 @layer base {
@@ -195,21 +202,17 @@
     scroll-behavior: smooth;
   }
 
-  /* Display type: tighter, denser, more optical presence than the
-     default `font-semibold tracking-tight` everything-looks-the-same. */
   h1,
   h2,
   h3 {
     font-family: var(--font-display);
-    letter-spacing: -0.028em;
+    letter-spacing: -0.01em;
   }
 
   ::selection {
-    background: oklch(0.7 0.185 291 / 0.28);
+    background: oklch(0.42 0.14 264 / 0.26);
   }
 
-  /* Tabular numerals everywhere a score/metric is rendered, so digits
-     don't jitter as values animate or change. */
   [data-numeric] {
     font-variant-numeric: tabular-nums;
   }
@@ -233,60 +236,27 @@
   }
 }
 
-/* ---------- Brand utilities ---------- */
-
-@utility text-spectral {
-  background-image: var(--spectral);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  /* Descenders get clipped by background-clip:text without this. */
-  padding-bottom: 0.08em;
-}
-
-@utility bg-spectral {
-  background-image: var(--spectral);
-}
-
-/* A 1px gradient hairline border, done with a masked pseudo-element so it
-   works on any background (a gradient `border-image` can't do rounded). */
-@utility spectral-ring {
-  position: relative;
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: var(--spectral);
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-}
+/* ---------- Utilities ---------- */
 
 @utility glass {
   background: var(--surface-veil);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
-@utility shadow-card {
-  box-shadow: var(--shadow-card);
+@utility shadow-1 {
+  box-shadow: var(--shadow-1);
+}
+@utility shadow-2 {
+  box-shadow: var(--shadow-2);
+}
+@utility shadow-3 {
+  box-shadow: var(--shadow-3);
 }
 
-@utility shadow-lift {
-  box-shadow: var(--shadow-lift);
-}
-
-/* Film grain — the single cheapest way to stop a flat page reading as
-   a rendered mockup. Sits above the background, below all content. */
+/* Film grain — the cheapest way to keep a flat surface from reading as
+   a rendered mockup. Sits above the background, below content. Kept
+   deliberately faint; this is texture, not a visual effect to notice. */
 @utility grain {
   position: relative;
   &::before {
@@ -304,25 +274,56 @@
   background-image:
     linear-gradient(to right, var(--border) 1px, transparent 1px),
     linear-gradient(to bottom, var(--border) 1px, transparent 1px);
-  background-size: 56px 56px;
+  background-size: 64px 64px;
 }
 
-/* Hover lift shared by every interactive card surface. */
+/* Classic magazine drop cap — a real editorial device, not a generic
+   SaaS pattern. First letter set in the display face, sized against the
+   paragraph's own line-height so it sits flush with the first few lines. */
+@utility drop-cap {
+  &::first-letter {
+    font-family: var(--font-display);
+    float: left;
+    font-size: 3.4em;
+    line-height: 0.85;
+    padding-right: 0.08em;
+    padding-top: 0.03em;
+    color: var(--primary);
+  }
+}
+
+/* Shared interactive-surface treatment: fast, restrained. */
 @utility lift {
   transition:
-    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 0.35s ease;
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 180ms ease;
   &:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-lift);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-3);
+    border-color: var(--muted-foreground);
+  }
+}
+
+/* Scroll-reveal: toggled by IntersectionObserver in components/layout/reveal.tsx.
+   Starts hidden only when JS is available and motion is allowed; otherwise
+   content is visible immediately (progressive enhancement, not a gate). */
+@utility reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+  &.in-view {
+    opacity: 1;
+    transform: none;
   }
 }
 
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -339,44 +340,15 @@
   }
 }
 
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-/* Slow, non-repeating-feeling motion for the background glow orbs. */
-@keyframes drift {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  100% {
-    transform: translate3d(6%, -8%, 0) scale(1.18);
-  }
-}
-
-@keyframes shimmer {
-  from {
-    background-position: -200% 0;
-  }
-  to {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes sweep {
-  from {
-    stroke-dashoffset: var(--dash-total, 1000);
-  }
-}
-
 @keyframes grow-bar {
   from {
     transform: scaleX(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -390,6 +362,10 @@
     scroll-behavior: auto !important;
   }
   .lift:hover {
+    transform: none;
+  }
+  .reveal {
+    opacity: 1;
     transform: none;
   }
 }
