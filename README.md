@@ -205,7 +205,7 @@ Prerequisites: Node.js 20+, Python 3.11+ (developed against 3.14),
 on `PATH`.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Rohit-Yadav-2005/SocialLens.git
 cd SocialLens
 ```
 
@@ -499,10 +499,10 @@ because its free-tier setup needs the fewest manual steps.
 
 ```
 SocialLens/
-├── backend/           FastAPI app (see backend/README structure in docs/architecture.md)
-├── frontend/           Next.js app (App Router)
-├── docs/               architecture.md, api.md, decisions.md, approach.md
-└── README.md           you are here
+├── backend/            FastAPI app — see docs/architecture.md for the layer breakdown
+├── frontend/            Next.js app (App Router)
+├── docs/                architecture.md (diagrams, layering), decisions.md (engineering log)
+└── README.md            you are here
 ```
 
 ## License
